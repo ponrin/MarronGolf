@@ -1,4 +1,5 @@
-const CACHE = "golf-v2.0.0";
+// ※ index.html の APP_VERSION と必ず同時に変更する
+const CACHE = "golf-v2.1.0";
 const ASSETS = [
   "./",
   "./index.html",

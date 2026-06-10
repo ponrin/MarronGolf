@@ -122,6 +122,7 @@
   </div>
   <div class="btn-row">
     <button id="btn-trail" class="btn small tertiary toggled">軌跡 ON</button>
+    <button id="btn-ball" class="btn small tertiary">ボール OFF</button>
     <button id="btn-trail-clear" class="btn small tertiary">軌跡クリア</button>
     <button id="btn-analyze" class="btn small" disabled>スイング解析</button>
   </div>
@@ -198,7 +199,8 @@
 
   <script>
     // モジュール (CDN) の読み込みに失敗してもバージョンは必ず表示する
-    window.APP_VERSION = "v2.0.0";
+    // ※ ここを変えたら sw.js の CACHE 名も必ず同時に変更する
+    window.APP_VERSION = "v2.1.0";
     document.getElementById("app-ver").textContent = window.APP_VERSION;
   </script>
   <script type="module">
@@ -224,6 +226,17 @@
     let trailOn = true;
     let trail = [];             // {x, y, t}  正規化座標
     const TRAIL_MAX = 400;
+
+    // ---- ボール軌跡 (フレーム差分検出, ベータ) ----
+    let ballOn = false;
+    let ballTrail = [];         // {x, y, t}  正規化座標
+    const BALL_MAX = 300;
+    const BALL_W = 160;         // 縮小解析の幅 (px)
+    let ballH = 0;
+    const ballCv = document.createElement("canvas");
+    const bctx = ballCv.getContext("2d", { willReadFrequently: true });
+    let prevPix = null;
+    let ballSkip = 0;
 
     // ---- 時系列サンプル (#125/#126/#128) ----
     let samples = new Map();    // key: round(t*30) -> {t, wx, wy, torso, torsoR, kneeL, kneeR}
@@ -253,6 +266,7 @@
       video.removeAttribute("src");
       lastT = -1;
       trail = [];
+      ballTrail = []; prevPix = null; ballH = 0; ballSkip = 0;
       samples = new Map();
       analysis = null;
       $("keyframes").classList.remove("active");
@@ -372,7 +386,113 @@
       $("btn-trail").textContent = trailOn ? "軌跡 ON" : "軌跡 OFF";
       $("btn-trail").classList.toggle("toggled", trailOn);
     });
-    $("btn-trail-clear").addEventListener("click", () => { trail = []; });
+    $("btn-trail-clear").addEventListener("click", () => { trail = []; ballTrail = []; });
+
+    // ---------- ボール軌跡 ----------
+    $("btn-ball").addEventListener("click", () => {
+      ballOn = !ballOn;
+      $("btn-ball").textContent = ballOn ? "ボール ON" : "ボール OFF";
+      $("btn-ball").classList.toggle("toggled", ballOn);
+      if (ballOn) {
+        status.textContent = "ボール軌跡 (ベータ): 白く明るい球を追跡。高速の打球は検出できないことがあります";
+      } else {
+        prevPix = null;
+      }
+    });
+
+    // フレーム差分 + 輝度でボール候補を検出 (1フレームおき、体まわりは除外)
+    function detectBall(vid, lm, w, h, t) {
+      ballSkip = (ballSkip + 1) % 2;
+      if (ballSkip !== 0) return;
+      if (!ballH) {
+        ballH = Math.max(1, Math.round(BALL_W * h / w));
+        ballCv.width = BALL_W; ballCv.height = ballH;
+        prevPix = null;
+      }
+      bctx.drawImage(vid, 0, 0, BALL_W, ballH);
+      const cur = bctx.getImageData(0, 0, BALL_W, ballH).data;
+      if (prevPix && prevPix.length === cur.length) {
+        // 体の bounding box (visibility 0.5 以上のみ) + マージンを除外
+        let bx0 = 1, by0 = 1, bx1 = 0, by1 = 0;
+        for (const p of lm) {
+          if ((p.visibility ?? 1) < 0.5) continue;
+          if (p.x < bx0) bx0 = p.x; if (p.y < by0) by0 = p.y;
+          if (p.x > bx1) bx1 = p.x; if (p.y > by1) by1 = p.y;
+        }
+        const m = 0.06;
+        const ex0 = (bx0 - m) * BALL_W, ey0 = (by0 - m) * ballH;
+        const ex1 = (bx1 + m) * BALL_W, ey1 = (by1 + m) * ballH;
+        // 平均輝度から適応閾値 (屋外/室内差を吸収)
+        let lum = 0, n = 0;
+        for (let i = 0; i < cur.length; i += 64) { lum += cur[i] + cur[i+1] + cur[i+2]; n++; }
+        lum /= n;
+        const brightTh = Math.max(430, lum * 1.45);
+        const MOTION_TH = 90;
+        // 8px グリッドに候補ピクセルを集計
+        const gw = Math.ceil(BALL_W / 8), gh = Math.ceil(ballH / 8);
+        const cnt = new Uint16Array(gw * gh);
+        const sx = new Float32Array(gw * gh), sy = new Float32Array(gw * gh);
+        for (let y = 0; y < ballH; y++) {
+          const inY = y >= ey0 && y <= ey1;
+          for (let x = 0; x < BALL_W; x++) {
+            if (inY && x >= ex0 && x <= ex1) continue;
+            const i = (y * BALL_W + x) * 4;
+            const motion = Math.abs(cur[i] - prevPix[i])
+                         + Math.abs(cur[i+1] - prevPix[i+1])
+                         + Math.abs(cur[i+2] - prevPix[i+2]);
+            if (motion < MOTION_TH) continue;
+            if (cur[i] + cur[i+1] + cur[i+2] < brightTh) continue;
+            const g = (y >> 3) * gw + (x >> 3);
+            cnt[g]++; sx[g] += x; sy[g] += y;
+          }
+        }
+        // 小さい塊 (2〜48px) のうち最大のセルを採用
+        let best = -1, bestC = 0;
+        for (let g = 0; g < cnt.length; g++) {
+          if (cnt[g] >= 2 && cnt[g] <= 48 && cnt[g] > bestC) { best = g; bestC = cnt[g]; }
+        }
+        if (best >= 0) {
+          const px = sx[best] / cnt[best] / BALL_W;
+          const py = sy[best] / cnt[best] / ballH;
+          const last = ballTrail[ballTrail.length - 1];
+          let ok = true;
+          if (last && t - last.t < 0.3) {
+            const d = Math.hypot(px - last.x, py - last.y);
+            if (d > 0.25) {
+              // 大ジャンプは直前の進行方向と一致する時だけ許容 (高速打球)
+              const prev = ballTrail[ballTrail.length - 2];
+              ok = !!prev &&
+                (last.x - prev.x) * (px - last.x) + (last.y - prev.y) * (py - last.y) > 0;
+            }
+          }
+          if (ok) {
+            ballTrail.push({ x: px, y: py, t });
+            if (ballTrail.length > BALL_MAX) ballTrail.shift();
+          }
+        }
+      }
+      prevPix = cur;
+    }
+
+    function drawBallTrail(c, w, h) {
+      if (!ballOn || ballTrail.length === 0) return;
+      c.strokeStyle = "rgba(255,255,255,0.85)";
+      c.lineWidth = 2;
+      for (let i = 1; i < ballTrail.length; i++) {
+        const a = ballTrail[i - 1], b = ballTrail[i];
+        if (b.t - a.t > 0.5) continue;   // 検出が途切れた区間は線で繋がない
+        c.beginPath();
+        c.moveTo(a.x * w, a.y * h);
+        c.lineTo(b.x * w, b.y * h);
+        c.stroke();
+      }
+      c.fillStyle = "#ffee66";
+      for (const p of ballTrail) {
+        c.beginPath();
+        c.arc(p.x * w, p.y * h, 3, 0, Math.PI * 2);
+        c.fill();
+      }
+    }
 
     function drawTrail(c, w, h) {
       if (!trailOn || trail.length < 2) return;
@@ -408,9 +528,10 @@
           trail.push({ x: wrist.x, y: wrist.y, t: vid.currentTime });
           if (trail.length > TRAIL_MAX) trail.shift();
           if (mode === "file") recordSample(vid.currentTime, lm);
+          if (ballOn) detectBall(vid, lm, w, h, vid.currentTime);
         }
       }
-      if (isMain) drawTrail(c, w, h);
+      if (isMain) { drawTrail(c, w, h); drawBallTrail(c, w, h); }
     }
 
     function detect() {
