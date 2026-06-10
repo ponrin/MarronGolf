@@ -41,22 +41,55 @@
     .angle-row { display: flex; justify-content: space-between; }
     .angle-label { color: #aaa; }
     .angle-value { font-weight: bold; color: #fff; }
-    #btn-camera {
-      margin: 16px 0; padding: 12px 32px;
+    .btn-row { display: flex; gap: 12px; margin: 16px 0; }
+    .btn {
+      padding: 12px 24px;
       background: #7ecf7e; color: #1a1a2e;
       border: none; border-radius: 24px;
       font-size: 1rem; font-weight: bold; cursor: pointer;
     }
-    #btn-camera:disabled { opacity: 0.5; cursor: default; }
+    .btn.secondary { background: #4a90d9; color: #fff; }
+    .btn:disabled { opacity: 0.5; cursor: default; }
+    #controls {
+      display: none; width: 100%; max-width: 480px;
+      margin-top: 8px; padding: 8px 12px;
+      background: #16213e; border-radius: 8px;
+      align-items: center; gap: 8px;
+    }
+    #controls.active { display: flex; }
+    #btn-play {
+      background: #7ecf7e; color: #1a1a2e; border: none;
+      border-radius: 50%; width: 40px; height: 40px;
+      font-size: 1rem; cursor: pointer; flex-shrink: 0;
+    }
+    #seek { flex: 1; accent-color: #7ecf7e; }
+    #speed {
+      background: #1a1a2e; color: #eee; border: 1px solid #444;
+      border-radius: 6px; padding: 4px; font-size: 0.85rem;
+    }
   </style>
 </head>
 <body>
   <h1>🏌️ スイング分析</h1>
-  <div id="status">カメラを起動してください</div>
-  <button id="btn-camera">カメラ起動</button>
+  <div id="status">カメラ起動 または 動画を選択してください</div>
+  <div class="btn-row">
+    <button id="btn-camera" class="btn">カメラ起動</button>
+    <button id="btn-video" class="btn secondary">動画を選ぶ</button>
+    <input type="file" id="file-input" accept="video/*" hidden>
+  </div>
   <div id="canvas-wrapper">
     <video id="video" playsinline autoplay muted></video>
     <canvas id="canvas"></canvas>
+  </div>
+  <div id="controls">
+    <button id="btn-play">▶</button>
+    <input type="range" id="seek" min="0" max="1000" value="0">
+    <select id="speed">
+      <option value="1">1x</option>
+      <option value="0.5">0.5x</option>
+      <option value="0.25">0.25x</option>
+      <option value="0.1">0.1x</option>
+    </select>
   </div>
   <div id="angles">
     <h2>関節角度</h2>
@@ -83,13 +116,22 @@
       PoseLandmarker, FilesetResolver, DrawingUtils
     } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.12/vision_bundle.mjs";
 
-    const video  = document.getElementById("video");
-    const canvas = document.getElementById("canvas");
-    const ctx    = canvas.getContext("2d");
-    const status = document.getElementById("status");
-    const btnCam = document.getElementById("btn-camera");
+    const video    = document.getElementById("video");
+    const canvas   = document.getElementById("canvas");
+    const ctx      = canvas.getContext("2d");
+    const status   = document.getElementById("status");
+    const btnCam   = document.getElementById("btn-camera");
+    const btnVideo = document.getElementById("btn-video");
+    const fileIn   = document.getElementById("file-input");
+    const controls = document.getElementById("controls");
+    const btnPlay  = document.getElementById("btn-play");
+    const seek     = document.getElementById("seek");
+    const speed    = document.getElementById("speed");
     let poseLandmarker = null;
     let lastVideoTime  = -1;
+    let mode = null;        // "camera" | "file"
+    let cameraStream = null;
+    let fileUrl = null;
 
     async function initPose() {
       status.textContent = "MediaPipe を読み込み中...";
@@ -107,27 +149,97 @@
       status.textContent = "準備完了 — カメラを起動してください";
     }
 
+    function stopCurrentSource() {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop());
+        cameraStream = null;
+      }
+      video.srcObject = null;
+      if (fileUrl) {
+        URL.revokeObjectURL(fileUrl);
+        fileUrl = null;
+      }
+      video.removeAttribute("src");
+      lastVideoTime = -1;
+    }
+
     btnCam.addEventListener("click", async () => {
-      btnCam.disabled = true;
+      stopCurrentSource();
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
+        cameraStream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "environment", width: 640, height: 480 },
           audio: false,
         });
-        video.srcObject = stream;
+        video.srcObject = cameraStream;
         await video.play();
+        mode = "camera";
+        controls.classList.remove("active");
         canvas.width  = video.videoWidth  || 480;
         canvas.height = video.videoHeight || 640;
         status.textContent = "検出中...";
-        detect();
+        startLoop();
       } catch (e) {
         status.textContent = "カメラエラー: " + e.message;
-        btnCam.disabled = false;
       }
     });
 
+    btnVideo.addEventListener("click", () => fileIn.click());
+
+    fileIn.addEventListener("change", () => {
+      const file = fileIn.files[0];
+      if (!file) return;
+      stopCurrentSource();
+      fileUrl = URL.createObjectURL(file);
+      video.src = fileUrl;
+      video.loop = true;
+      mode = "file";
+      video.addEventListener("loadedmetadata", () => {
+        canvas.width  = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
+        controls.classList.add("active");
+        status.textContent = "再生して解析できます";
+        video.play().catch(() => {});
+        startLoop();
+      }, { once: true });
+      fileIn.value = "";
+    });
+
+    // ----- 再生コントロール (file mode) -----
+    btnPlay.addEventListener("click", () => {
+      if (video.paused) video.play(); else video.pause();
+    });
+    video.addEventListener("play",  () => { btnPlay.textContent = "⏸"; });
+    video.addEventListener("pause", () => { btnPlay.textContent = "▶"; });
+
+    let seeking = false;
+    seek.addEventListener("input", () => {
+      if (!video.duration) return;
+      seeking = true;
+      video.pause();
+      video.currentTime = (seek.value / 1000) * video.duration;
+    });
+    seek.addEventListener("change", () => { seeking = false; });
+    video.addEventListener("timeupdate", () => {
+      if (!seeking && video.duration) {
+        seek.value = Math.round((video.currentTime / video.duration) * 1000);
+      }
+    });
+
+    speed.addEventListener("change", () => {
+      video.playbackRate = parseFloat(speed.value);
+    });
+
+    let loopRunning = false;
+    function startLoop() {
+      if (!loopRunning) {
+        loopRunning = true;
+        requestAnimationFrame(detect);
+      }
+    }
+
     function detect() {
-      if (video.currentTime !== lastVideoTime) {
+      if (poseLandmarker && video.readyState >= 2 && video.currentTime !== lastVideoTime) {
         lastVideoTime = video.currentTime;
         const result = poseLandmarker.detectForVideo(video, performance.now());
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
