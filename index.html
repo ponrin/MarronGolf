@@ -19,6 +19,13 @@
       align-items: center;
       min-height: 100vh;
     }
+    #topbar {
+      width: 100%; padding: 6px 12px;
+      background: #0f1626;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.78rem; color: #889;
+    }
+    #topbar .ver { color: #7ecf7e; font-weight: bold; }
     h1 { margin: 16px 0 8px; font-size: 1.4rem; color: #7ecf7e; }
     #status { font-size: 0.85rem; color: #aaa; margin-bottom: 8px; min-height: 1.2em; }
     #canvas-wrapper { position: relative; width: 100%; max-width: 480px; }
@@ -70,6 +77,10 @@
   </style>
 </head>
 <body>
+  <div id="topbar">
+    <span>⚙️ Golf Swing Analyzer</span>
+    <span class="ver" id="app-ver"></span>
+  </div>
   <h1>🏌️ スイング分析</h1>
   <div id="status">カメラ起動 または 動画を選択してください</div>
   <div class="btn-row">
@@ -111,6 +122,11 @@
     </div>
   </div>
 
+  <script>
+    // モジュール (CDN) の読み込みに失敗してもバージョンは必ず表示する
+    window.APP_VERSION = "v1.2.0";
+    document.getElementById("app-ver").textContent = window.APP_VERSION;
+  </script>
   <script type="module">
     import {
       PoseLandmarker, FilesetResolver, DrawingUtils

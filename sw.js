@@ -1,4 +1,4 @@
-const CACHE = "golf-v2";
+const CACHE = "golf-v1.2.0";
 const ASSETS = [
   "./",
   "./index.html",
