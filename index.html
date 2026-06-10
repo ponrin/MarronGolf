@@ -200,7 +200,7 @@
   <script>
     // モジュール (CDN) の読み込みに失敗してもバージョンは必ず表示する
     // ※ ここを変えたら sw.js の CACHE 名も必ず同時に変更する
-    window.APP_VERSION = "v2.1.0";
+    window.APP_VERSION = "v2.1.1";
     document.getElementById("app-ver").textContent = window.APP_VERSION;
   </script>
   <script type="module">
@@ -422,6 +422,22 @@
         const m = 0.06;
         const ex0 = (bx0 - m) * BALL_W, ey0 = (by0 - m) * ballH;
         const ex1 = (bx1 + m) * BALL_W, ey1 = (by1 + m) * ballH;
+
+        // クラブヘッド推定位置を除外 (右肘→手首ベクトルを延長)
+        // 右肘=lm[14] 右手首=lm[16]。延長係数 1.6 でシャフト先端を推定
+        const elbow = lm[14], wrist = lm[16];
+        const clubExZones = [];
+        if ((elbow.visibility ?? 1) >= 0.4 && (wrist.visibility ?? 1) >= 0.4) {
+          const dx = wrist.x - elbow.x, dy = wrist.y - elbow.y;
+          const clubX = (wrist.x + dx * 1.6) * BALL_W;
+          const clubY = (wrist.y + dy * 1.6) * ballH;
+          clubExZones.push({ cx: clubX, cy: clubY, r: 0.14 * BALL_W });
+        }
+        // 左手首 (lm[15]) 周辺も除外 (グリップが太く検出されやすい)
+        const wristL = lm[15];
+        if ((wristL.visibility ?? 1) >= 0.4) {
+          clubExZones.push({ cx: wristL.x * BALL_W, cy: wristL.y * ballH, r: 0.08 * BALL_W });
+        }
         // 平均輝度から適応閾値 (屋外/室内差を吸収)
         let lum = 0, n = 0;
         for (let i = 0; i < cur.length; i += 64) { lum += cur[i] + cur[i+1] + cur[i+2]; n++; }
@@ -436,6 +452,8 @@
           const inY = y >= ey0 && y <= ey1;
           for (let x = 0; x < BALL_W; x++) {
             if (inY && x >= ex0 && x <= ex1) continue;
+            // クラブヘッド推定ゾーン除外
+            if (clubExZones.some(z => (x - z.cx) ** 2 + (y - z.cy) ** 2 < z.r ** 2)) continue;
             const i = (y * BALL_W + x) * 4;
             const motion = Math.abs(cur[i] - prevPix[i])
                          + Math.abs(cur[i+1] - prevPix[i+1])
