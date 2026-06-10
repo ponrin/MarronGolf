@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ゴルフ スイング分析</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Golf">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #1a1a2e;
+      color: #eee;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    h1 { margin: 16px 0 8px; font-size: 1.4rem; color: #7ecf7e; }
+    #status { font-size: 0.85rem; color: #aaa; margin-bottom: 8px; min-height: 1.2em; }
+    #canvas-wrapper { position: relative; width: 100%; max-width: 480px; }
+    video {
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: cover; opacity: 0;
+    }
+    canvas {
+      display: block; width: 100%; aspect-ratio: 3/4;
+      background: #000; border-radius: 8px;
+    }
+    #angles {
+      width: 100%; max-width: 480px;
+      margin-top: 12px; padding: 12px 16px;
+      background: #16213e; border-radius: 8px;
+      font-size: 0.9rem; line-height: 1.8;
+    }
+    #angles h2 { font-size: 1rem; color: #7ecf7e; margin-bottom: 4px; }
+    .angle-row { display: flex; justify-content: space-between; }
+    .angle-label { color: #aaa; }
+    .angle-value { font-weight: bold; color: #fff; }
+    #btn-camera {
+      margin: 16px 0; padding: 12px 32px;
+      background: #7ecf7e; color: #1a1a2e;
+      border: none; border-radius: 24px;
+      font-size: 1rem; font-weight: bold; cursor: pointer;
+    }
+    #btn-camera:disabled { opacity: 0.5; cursor: default; }
+  </style>
+</head>
+<body>
+  <h1>🏌️ スイング分析</h1>
+  <div id="status">カメラを起動してください</div>
+  <button id="btn-camera">カメラ起動</button>
+  <div id="canvas-wrapper">
+    <video id="video" playsinline autoplay muted></video>
+    <canvas id="canvas"></canvas>
+  </div>
+  <div id="angles">
+    <h2>関節角度</h2>
+    <div class="angle-row">
+      <span class="angle-label">左肩–腰–膝（前傾）</span>
+      <span class="angle-value" id="val-torso">--°</span>
+    </div>
+    <div class="angle-row">
+      <span class="angle-label">右肩–腰–膝（前傾）</span>
+      <span class="angle-value" id="val-torso-r">--°</span>
+    </div>
+    <div class="angle-row">
+      <span class="angle-label">左膝角度</span>
+      <span class="angle-value" id="val-knee-l">--°</span>
+    </div>
+    <div class="angle-row">
+      <span class="angle-label">右膝角度</span>
+      <span class="angle-value" id="val-knee-r">--°</span>
+    </div>
+  </div>
+
+  <script type="module">
+    import {
+      PoseLandmarker, FilesetResolver, DrawingUtils
+    } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.12/vision_bundle.mjs";
+
+    const video  = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const ctx    = canvas.getContext("2d");
+    const status = document.getElementById("status");
+    const btnCam = document.getElementById("btn-camera");
+    let poseLandmarker = null;
+    let lastVideoTime  = -1;
+
+    async function initPose() {
+      status.textContent = "MediaPipe を読み込み中...";
+      const vision = await FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.12/wasm"
+      );
+      poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+          delegate: "GPU",
+        },
+        runningMode: "VIDEO",
+        numPoses: 1,
+      });
+      status.textContent = "準備完了 — カメラを起動してください";
+    }
+
+    btnCam.addEventListener("click", async () => {
+      btnCam.disabled = true;
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment", width: 640, height: 480 },
+          audio: false,
+        });
+        video.srcObject = stream;
+        await video.play();
+        canvas.width  = video.videoWidth  || 480;
+        canvas.height = video.videoHeight || 640;
+        status.textContent = "検出中...";
+        detect();
+      } catch (e) {
+        status.textContent = "カメラエラー: " + e.message;
+        btnCam.disabled = false;
+      }
+    });
+
+    function detect() {
+      if (video.currentTime !== lastVideoTime) {
+        lastVideoTime = video.currentTime;
+        const result = poseLandmarker.detectForVideo(video, performance.now());
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        if (result.landmarks.length > 0) {
+          const lm = result.landmarks[0];
+          const drawUtils = new DrawingUtils(ctx);
+          drawUtils.drawLandmarks(lm, { color: "#00ff88", lineWidth: 2, radius: 4 });
+          drawUtils.drawConnectors(lm, PoseLandmarker.POSE_CONNECTIONS, { color: "#00aaff", lineWidth: 2 });
+          updateAngles(lm);
+        }
+      }
+      requestAnimationFrame(detect);
+    }
+
+    function angleDeg(a, b, c) {
+      const ab = { x: a.x - b.x, y: a.y - b.y };
+      const cb = { x: c.x - b.x, y: c.y - b.y };
+      const dot = ab.x * cb.x + ab.y * cb.y;
+      const mag = Math.sqrt((ab.x**2 + ab.y**2) * (cb.x**2 + cb.y**2));
+      if (mag === 0) return 0;
+      return Math.round(Math.acos(Math.min(1, Math.max(-1, dot / mag))) * 180 / Math.PI);
+    }
+
+    function updateAngles(lm) {
+      const set = (id, val) => document.getElementById(id).textContent = val + "°";
+      set("val-torso",   angleDeg(lm[11], lm[23], lm[25]));
+      set("val-torso-r", angleDeg(lm[12], lm[24], lm[26]));
+      set("val-knee-l",  angleDeg(lm[23], lm[25], lm[27]));
+      set("val-knee-r",  angleDeg(lm[24], lm[26], lm[28]));
+    }
+
+    initPose().catch(e => { status.textContent = "初期化失敗: " + e.message; });
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("sw.js");
+    }
+  </script>
+</body>
+</html>
