@@ -1,5 +1,5 @@
 // ※ index.html の APP_VERSION と必ず同時に変更する
-const CACHE = "golf-v2.2.0";
+const CACHE = "golf-v2.2.1";
 const ASSETS = [
   "./",
   "./index.html",
@@ -24,6 +24,20 @@ self.addEventListener("activate", e => {
 
 self.addEventListener("fetch", e => {
   if (e.request.method !== "GET") return;
+  // HTML はネットワーク優先: 新バージョンがリロード1回で反映される
+  if (e.request.mode === "navigate" || e.request.destination === "document") {
+    e.respondWith(
+      fetch(e.request)
+        .then(res => {
+          const copy = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, copy));
+          return res;
+        })
+        .catch(() => caches.match(e.request))
+    );
+    return;
+  }
+  // その他のアセットはキャッシュ優先 (オフライン高速起動)
   e.respondWith(
     caches.match(e.request).then(cached => cached || fetch(e.request))
   );
