@@ -89,6 +89,12 @@
     #graph { width: 100%; height: 140px; background: #0f1626; border-radius: 6px; touch-action: none; }
     #panel-3d { display: none; }
     #panel-3d.active { display: block; }
+    #panel-rotation { display: none; }
+    #panel-rotation.active { display: block; }
+    #graph-rot { width: 100%; height: 120px; background: #0f1626; border-radius: 6px; }
+    #kinem-order { font-weight: bold; }
+    #kinem-order.good { color: #7ecf7e; }
+    #kinem-order.off { color: #e0a040; }
     #view3d {
       width: 100%; height: 280px; background: #0f1626;
       border-radius: 6px; touch-action: none; cursor: grab;
@@ -131,6 +137,7 @@
     <button id="btn-ball" class="btn small tertiary">ボール OFF</button>
     <button id="btn-trail-clear" class="btn small tertiary">軌跡クリア</button>
     <button id="btn-analyze" class="btn small" disabled>スイング解析</button>
+    <button id="btn-deep" class="btn small tertiary" disabled>じっくり解析</button>
     <button id="btn-3d" class="btn small tertiary">3D 表示</button>
   </div>
 
@@ -191,6 +198,24 @@
     </div>
   </div>
 
+  <div class="panel" id="panel-rotation">
+    <h2>回転解析 <span class="note">(X-Factor / キネマティックシーケンス、ベータ)</span></h2>
+    <div class="angle-row">
+      <span class="angle-label">X-Factor 最大 (肩と腰の捻転差・アドレス基準)</span>
+      <span class="angle-value" id="xfactor-max">--</span>
+    </div>
+    <div class="angle-row">
+      <span class="angle-label">トップ時の X-Factor</span>
+      <span class="angle-value" id="xfactor-top">--</span>
+    </div>
+    <div class="angle-row">
+      <span class="angle-label">ダウンスイングの加速順序</span>
+      <span id="kinem-order">--</span>
+    </div>
+    <canvas id="graph-rot"></canvas>
+    <div class="note">理想は 腰 → 胸 → 腕 の順にピーク。グラフは各部位の回転速度 (それぞれのピークで正規化)。単眼推定のため目安</div>
+  </div>
+
   <div class="panel" id="panel-3d">
     <h2>3D スイング比較 <span class="note">(ベータ: 単眼推定のため奥行きは目安。ドラッグで回転)</span></h2>
     <canvas id="view3d"></canvas>
@@ -217,7 +242,7 @@
   <script>
     // モジュール (CDN) の読み込みに失敗してもバージョンは必ず表示する
     // ※ ここを変えたら sw.js の CACHE 名も必ず同時に変更する
-    window.APP_VERSION = "v2.2.1";
+    window.APP_VERSION = "v2.4.0";
     document.getElementById("app-ver").textContent = window.APP_VERSION;
   </script>
   <script type="module">
@@ -234,6 +259,8 @@
 
     let poseLandmarker = null;
     let poseLandmarkerB = null;   // B 専用 (VIDEO mode の timestamp 単調性をAと分離)
+    let poseLandmarkerHeavy = null; // じっくり解析用 (高精度 Heavy モデル)
+    let deepMode = false;         // じっくり解析中は live 検出ループを止める
     let visionFileset = null;
     let lastT = -1, lastTB = -1;
     let mode = null;            // "camera" | "file"
@@ -264,6 +291,7 @@
     // ---- 3D 比較 (#134) ----
     let samplesB = new Map();   // 比較動画 B の時系列 (3D 用)
     let analysisB = null;
+    let rotation = null;        // 回転解析 (X-Factor / キネマティックシーケンス)
     let view3dOn = false;
     let yaw3d = 0.6, pitch3d = 0.1, bFlip = false;
     const view3d = $("view3d"), v3ctx = view3d.getContext("2d");
@@ -299,9 +327,12 @@
       samples = new Map();
       analysis = null;
       samplesB = new Map(); analysisB = null; lastTB = -1;
+      rotation = null; deepMode = false;
       if (view3dOn) draw3D();
       $("keyframes").classList.remove("active");
+      $("panel-rotation").classList.remove("active");
       $("btn-analyze").disabled = true;
+      $("btn-deep").disabled = true;
       drawGraph();
     }
 
@@ -340,6 +371,7 @@
         canvas.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
         controls.classList.add("active");
         $("btn-analyze").disabled = false;
+        $("btn-deep").disabled = false;
         status.textContent = "再生すると角度を記録します。一通り再生後「スイング解析」";
         video.play().catch(() => {});
         startLoop();
@@ -601,6 +633,7 @@
     }
 
     function detect() {
+      if (deepMode) { requestAnimationFrame(detect); return; }
       if (poseLandmarker) {
         if (video.readyState >= 2 && video.currentTime !== lastT) {
           lastT = video.currentTime;
@@ -664,7 +697,7 @@
     }
 
     // ---------- スイング解析 (#125 キーフレーム + #128 テンポ) ----------
-    $("btn-analyze").addEventListener("click", () => {
+    function runAnalysis() {
       const s = [...samples.values()].sort((p, q) => p.t - q.t);
       if (s.length < 20) {
         status.textContent = "サンプル不足。動画を最初から最後まで一度再生してから解析してね";
@@ -672,11 +705,14 @@
       }
       analysis = analyzeSwing(s);
       renderAnalysis(s);
+      rotation = analyzeRotation(s);
+      renderRotation();
       saveHistory(s);
       const sb = [...samplesB.values()].sort((p, q) => p.t - q.t);
       analysisB = sb.length >= 20 ? analyzeSwing(sb) : null;
       status.textContent = "解析完了！キーフレームをタップでジャンプ";
-    });
+    }
+    $("btn-analyze").addEventListener("click", runAnalysis);
 
     function analyzeSwing(s) {
       // 速度 (正規化座標/秒)
@@ -717,6 +753,129 @@
         },
         back, down, ratio, postureKeep,
       };
+    }
+
+    // ---------- 回転解析: X-Factor + キネマティックシーケンス ----------
+    function analyzeRotation(s) {
+      const valid = s.filter(p => p.wl);
+      if (valid.length < 20 || !analysis) return null;
+      const T = valid.map(p => p.t);
+      // 水平面 (x-z) での線分の回転角 (deg)
+      const ang = (wl, i, j) =>
+        Math.atan2(wl[j*3+2] - wl[i*3+2], wl[j*3] - wl[i*3]) * 180 / Math.PI;
+      const armAng = wl => {
+        const sx = (wl[11*3] + wl[12*3]) / 2, sz = (wl[11*3+2] + wl[12*3+2]) / 2;
+        return Math.atan2(wl[15*3+2] - sz, wl[15*3] - sx) * 180 / Math.PI; // リード腕 (左手首, 右打ち想定)
+      };
+      const unwrap = a => {
+        const out = [a[0]];
+        for (let i = 1; i < a.length; i++) {
+          let d = a[i] - a[i-1];
+          while (d > 180) d -= 360;
+          while (d < -180) d += 360;
+          out.push(out[i-1] + d);
+        }
+        return out;
+      };
+      const smooth = a => a.map((_, i) => {
+        let sum = 0, n = 0;
+        for (let k = i - 2; k <= i + 2; k++) {
+          if (k >= 0 && k < a.length) { sum += a[k]; n++; }
+        }
+        return sum / n;
+      });
+      const pelvis = smooth(unwrap(valid.map(p => ang(p.wl, 23, 24))));
+      const torso  = smooth(unwrap(valid.map(p => ang(p.wl, 11, 12))));
+      const arm    = smooth(unwrap(valid.map(p => armAng(p.wl))));
+      const deriv = a => a.map((v, i) =>
+        i ? Math.abs((v - a[i-1]) / ((T[i] - T[i-1]) || 1/30)) : 0);
+      const wp = deriv(pelvis), wt = deriv(torso), wa = deriv(arm);
+
+      const kf = analysis.keyframes;
+      const t0 = kf["アドレス"], tTop = kf["トップ"], tImp = kf["インパクト"];
+      const idxNear = t => {
+        let bi = 0, bd = Infinity;
+        T.forEach((tt, i) => { const d = Math.abs(tt - t); if (d < bd) { bd = d; bi = i; } });
+        return bi;
+      };
+      const ai = idxNear(t0), ti = idxNear(tTop), ii = idxNear(tImp);
+      // X-Factor: アドレス時の (肩-腰) を基準にした捻転差
+      const base = torso[ai] - pelvis[ai];
+      let xfMax = 0;
+      for (let i = ai; i <= ii && i < valid.length; i++) {
+        const xf = Math.abs((torso[i] - pelvis[i]) - base);
+        if (xf > xfMax) xfMax = xf;
+      }
+      const xfTop = Math.abs((torso[ti] - pelvis[ti]) - base);
+      // ダウンスイング窓 [トップ-0.02s, インパクト+0.08s] での角速度ピーク
+      const peakIn = w => {
+        let bt = null, bv = 0;
+        valid.forEach((p, i) => {
+          if (p.t >= tTop - 0.02 && p.t <= tImp + 0.08 && w[i] > bv) { bv = w[i]; bt = p.t; }
+        });
+        return { t: bt, v: bv };
+      };
+      const peaks = [
+        { name: "腰", ...peakIn(wp) },
+        { name: "胸", ...peakIn(wt) },
+        { name: "腕", ...peakIn(wa) },
+      ];
+      const good = peaks.every(p => p.t != null) &&
+        peaks[0].t <= peaks[1].t && peaks[1].t <= peaks[2].t;
+      return { xfMax, xfTop, peaks, good, graph: { T, wp, wt, wa } };
+    }
+
+    const ROT_SERIES = [
+      { key: "wp", color: "#e0a040", label: "腰" },
+      { key: "wt", color: "#4a90d9", label: "胸" },
+      { key: "wa", color: "#7ecf7e", label: "腕" },
+    ];
+    function renderRotation() {
+      const panel = $("panel-rotation");
+      if (!rotation) {
+        panel.classList.remove("active");
+        return;
+      }
+      panel.classList.add("active");
+      $("xfactor-max").textContent = rotation.xfMax.toFixed(0) + "°";
+      $("xfactor-top").textContent = rotation.xfTop.toFixed(0) + "°";
+      const order = $("kinem-order");
+      const seq = [...rotation.peaks].sort((a, b) => (a.t ?? 9e9) - (b.t ?? 9e9))
+        .map(p => p.t == null ? `${p.name}(未検出)` : p.name).join(" → ");
+      order.textContent = seq + (rotation.good ? " ✅" : " ⚠️ (理想: 腰 → 胸 → 腕)");
+      order.className = rotation.good ? "good" : "off";
+      // 角速度グラフ (各系列をそれぞれのピークで正規化)
+      const g = $("graph-rot"), gc = g.getContext("2d");
+      const W = g.width = g.clientWidth * devicePixelRatio;
+      const H = g.height = 120 * devicePixelRatio;
+      gc.clearRect(0, 0, W, H);
+      const { T, wp, wt, wa } = rotation.graph;
+      const series = { wp, wt, wa };
+      const t0 = T[0], t1 = T[T.length - 1] || 1;
+      const X = t => ((t - t0) / (t1 - t0)) * W;
+      // キーフレーム縦線
+      gc.strokeStyle = "rgba(255,255,255,0.25)";
+      gc.lineWidth = 1;
+      for (const t of Object.values(analysis.keyframes)) {
+        gc.beginPath(); gc.moveTo(X(t), 0); gc.lineTo(X(t), H); gc.stroke();
+      }
+      for (const se of ROT_SERIES) {
+        const arr = series[se.key];
+        const peak = Math.max(...arr) || 1;
+        gc.strokeStyle = se.color;
+        gc.lineWidth = 1.5 * devicePixelRatio;
+        gc.beginPath();
+        arr.forEach((v, i) => {
+          const x = X(T[i]), y = H - (v / peak) * (H - 14 * devicePixelRatio);
+          i === 0 ? gc.moveTo(x, y) : gc.lineTo(x, y);
+        });
+        gc.stroke();
+      }
+      gc.font = `${10 * devicePixelRatio}px sans-serif`;
+      ROT_SERIES.forEach((se, i) => {
+        gc.fillStyle = se.color;
+        gc.fillText(se.label, (6 + i * 30) * devicePixelRatio, 12 * devicePixelRatio);
+      });
     }
 
     function renderAnalysis(s) {
@@ -977,6 +1136,72 @@
       v3ctx.moveTo(0, H * 0.82); v3ctx.lineTo(W, H * 0.82);
       v3ctx.stroke();
     }
+
+    // ---------- じっくり解析 (高精度 Heavy モデル、非リアルタイム) ----------
+    function seekTo(t) {
+      return new Promise((resolve, reject) => {
+        if (Math.abs(video.currentTime - t) < 0.001) return resolve();
+        const timer = setTimeout(() => {
+          video.removeEventListener("seeked", on);
+          reject(new Error("シークがタイムアウトしました"));
+        }, 5000);
+        const on = () => { clearTimeout(timer); resolve(); };
+        video.addEventListener("seeked", on, { once: true });
+        video.currentTime = t;
+      });
+    }
+
+    $("btn-deep").addEventListener("click", async () => {
+      if (deepMode) { deepMode = false; return; }   // 実行中タップ = 中止
+      if (!video.duration || mode !== "file") return;
+      deepMode = true;
+      $("btn-deep").textContent = "解析中止";
+      try {
+        if (!poseLandmarkerHeavy) {
+          status.textContent = "高精度モデルを読み込み中... (初回のみ・数十MB)";
+          poseLandmarkerHeavy = await PoseLandmarker.createFromOptions(visionFileset, {
+            baseOptions: {
+              modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/1/pose_landmarker_heavy.task",
+              delegate: "GPU",
+            },
+            runningMode: "VIDEO",
+            numPoses: 1,
+          });
+        }
+        if (!deepMode) throw new Error("中止しました");
+        video.pause(); if (compareOn) videoB.pause();
+        samples = new Map(); analysis = null; rotation = null;
+        renderRotation();
+        const dur = video.duration;
+        const step = Math.max(1 / 30, dur / 600);   // 最大 ~600 フレーム
+        let count = 0;
+        for (let t = 0; t < dur && deepMode; t += step) {
+          await seekTo(Math.min(t, dur - 0.01));
+          const res = poseLandmarkerHeavy.detectForVideo(video, performance.now());
+          if (res.landmarks.length > 0) {
+            recordSample(video.currentTime, res.landmarks[0], res.worldLandmarks?.[0]);
+          }
+          if (++count % 10 === 0) {
+            status.textContent = `じっくり解析中... ${Math.round((t / dur) * 100)}% (高精度モデル・数分かかることがあります)`;
+            drawGraph();
+          }
+        }
+        if (deepMode) {
+          runAnalysis();
+          status.textContent = "じっくり解析完了！(高精度モデル) キーフレームをタップでジャンプ";
+        } else {
+          // 中止: 中途半端なサンプルで誤解析しないようクリア
+          samples = new Map();
+          drawGraph();
+          status.textContent = "じっくり解析を中止しました (再生し直すと通常解析できます)";
+        }
+      } catch (e) {
+        status.textContent = "じっくり解析エラー: " + e.message;
+      } finally {
+        deepMode = false;
+        $("btn-deep").textContent = "じっくり解析";
+      }
+    });
 
     // ---------- 履歴 (#129) ----------
     const HIST_KEY = "golf-history-v1";
