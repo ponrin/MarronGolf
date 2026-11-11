@@ -1,4 +1,4 @@
-const CACHE = "golflab-poc-1-2aaa9d0673";
+const CACHE = "golflab-poc-1-lkcopackogki";
 const PRECACHE = ["./", "index.html", "data.html", "model.html", "physics.js", "cells.js", "app.js", "data.js", "model.js", "gate.js", "mobile.css", "manifest.json", "icon-gl-192.png", "icon-gl-512.png", "apple-touch-icon.png", "data.json.enc"];
 
 self.addEventListener("install", (e) => {

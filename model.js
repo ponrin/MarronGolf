@@ -116,7 +116,7 @@ function renderConsts(cfg) {
   }
   const box = document.getElementById("consts");
   box.appendChild(t);
-  box.appendChild(el("div", "muted", "仮定: " + (cfg.assumptions || []).join(" · ") + " · 状態: " + (cfg.status || "")));
+  box.appendChild(el("div", "muted", "仮定: " + (cfg.assumptions || []).join(" · ") + ""));
 }
 
 function renderCheck(cfg, data) {
@@ -195,7 +195,7 @@ function renderTourCheck(data, cfg, box) {
   const assumed = ["Driver", "3-wood", "5-wood"].filter((k) => clubs[k])
     .map((k) => `${name(k)} ${fmt(clubs[k].loft_deg, 0)}° ${fmt(clubs[k].head_mass_g, 0)} g`).join("・");
   info.appendChild(el("p", "muted", `ツアーのクラブのロフトとヘッド質量は${spec.source}: ${assumed}。` +
-    "HS は TrackMan の本物の値を使った (Q2 の HS の式の検証ではない)。ツアー平均は答え合わせ専用で、自分の計算の土台には使わない。"));
+    "HS は TrackMan の本物の値を使った (HS を見積もる式とは別)。ツアー平均は答え合わせ専用で、自分の計算の土台には使わない。"));
   const ok = res.rows.filter((r) => r.ok);
   if (!ok.length) return;
   const per = (tc) => ok.filter((r) => r.tour_club === tc);
@@ -214,7 +214,7 @@ function renderTourCheck(data, cfg, box) {
 const N_HUMAN = 0.26;
 const flaggedShot = (s) => s.review_flag && s.review_flag !== "review_not_required";
 
-const WEDGES = ["PW", "50deg", "56deg"];
+const WEDGES = { includes: (c) => c === "PW" || /^\d+deg$/.test(String(c)) };
 const N_FIX = 0.25;
 let ARM_M = HAS_PHYSICS ? GolfPhysics.ARM_DEFAULT_M : NaN, EVAL_WEDGE = false, CM_PER_IN = NaN;
 const cm = (L) => L * CM_PER_IN;
@@ -397,16 +397,16 @@ function renderSwing(cfg, data) {
     `「腕 + クラブ」= 腕とクラブが一直線で同じ角速度を持つと仮定した比較式 (ヘッドの速さ = 角速度 × (肩から手首 + クラブの長さ))。` +
     `「× グリップ端の MOI (中心)」「× 肩まわりの MOI」は、それにクラブの MOI の補正 (経験) (X_5I / X)^${N_FIX} を掛けたもの — 画面の「ボールの軌跡とシミュレーション」(重さを足す・クラブを替える) と同じ式で、` +
     `X = グリップ端まわりのクラブの MOI (部品モデルの I_est) か、肩まわりの全体の MOI J = 腕 + I + m (R² + 2 R b) (腕の質量 ${GolfPhysics.ARM_MASS_KG} kg・慣性は Lampsa 1975 の仮定・b = 部品モデルの重心)。` +
-    `指数 ${N_FIX} はクラブのグリップ端まわりの MOI に当てはめた値 (棒を振る実験) で、肩まわりの J に使うのは転用 (未検証)。二重振り子から導いた理論式ではない (角速度の比やリリースは解いていない)。` +
+    `指数 ${N_FIX} はクラブのグリップ端まわりの MOI に当てはめた値 (棒を振る実験) で、肩まわりの J に使うのは転用。二重振り子から導いた理論式ではない (角速度の比やリリースは解いていない)。` +
     `グリップ端を中心に回すと置く式 (長さに比例・式 M・長さのべき乗) は、腕の分の半径を無視するので理論式として使わない。`;
   document.getElementById("swing-acc-note").textContent =
     `答え合わせに使った番手: ${used} (HS のますを外した球を除いた平均・基準の 5I は除く${EVAL_WEDGE ? "・ウェッジも入れた" : "・ウェッジは外した"})。` +
-    `5W 以外は 1〜2 球で、5I の平均にも標準誤差 ${fmt(sd5 / Math.sqrt(b5.length), 2)} m/s があるので、今の記録では順位の不確かさを十分に評価できない (行にマウスで番手ごとの差)。` +
-    `今の記録ではグリップ端と肩まわりのどちらが良いかは決まらない (1 球の差は合否の境界ではない)。` +
+    `球数の少ない番手があり、5I の平均にも標準誤差 ${fmt(sd5 / Math.sqrt(b5.length), 2)} m/s があるので、今の記録では順位の不確かさを十分に評価できない (行にマウスで番手ごとの差)。` +
+    `記録が少ないうちは、グリップ端と肩まわりのどちらが良いかは決まらない (1 球の差は合否の境界ではない)。` +
     `当てはめた「腕の長さ」(腕 + クラブ ${fmt(bArm.arm, 2)} m・RMSE ${fmt(bArm.rmse, 2)} / × 肩まわり ${fmt(bArmM.arm, 2)} m・RMSE ${fmt(bArmM.rmse, 2)} / ` +
     `× グリップ端 ${fmt(bArmG.arm, 2)} m・RMSE ${fmt(bArmG.rmse, 2)}) は、` +
     `腕とクラブの角速度の比も吸い込んだ有効なパラメータで、人の腕の長さとは読めない (同じ記録で合わせた値${edge(bArm) || edge(bArmM) || edge(bArmG) ? "・探し方の端の値を含む" : ""})。` +
-    `どの式が一番かを決めるには、条件をそろえた記録が要る (下の「次に測るもの」)。`;
+    `どの式が一番かを決めるには、条件をそろえた記録が要る (下の「確かさを上げるには」)。`;
 }
 
 function bindSwingControls(cfg, data) {
@@ -501,7 +501,7 @@ function renderSwingMass(cfg, data) {
     `5I を 0 にした時の、MOI の補正分 = (5I の MOI ÷ その番手の MOI)^${N_FIX} − 1 を、グリップ端の MOI (中心) と肩まわりの MOI の 2 本で。` +
     `長さによる慣性の変化も含む (長い番手ほどグリップ端の MOI は大きい)。腕 ${armLabel(ARM_M)} m (つまみと同じ)・腕の質量と慣性は Lampsa 1975 の仮定。` +
     `肩まわりでは、クラブの総重量そのものが効く (クラブの質量 × 肩からの距離² の項): 一番回しやすいのは ${name(hiJ)} (${fmt(hiJ.mass, 0)} g・${signed(hiJ.pct.J, 1)}%)、` +
-    `一番回しにくいのは ${name(loJ)} (${fmt(loJ.mass, 0)} g・${signed(loJ.pct.J, 1)}%)。総重量が ${fmt(Math.max(...mass) - Math.min(...mass), 0)} g 違っても ±1% くらいに収まるのは、` +
+    `一番回しにくいのは ${name(loJ)} (${fmt(loJ.mass, 0)} g・${signed(loJ.pct.J, 1)}%)。総重量が ${fmt(Math.max(...mass) - Math.min(...mass), 0)} g 違っても 肩まわりの差が ${fmt(hiJ.pct.J - loJ.pct.J, 1)}% の幅に収まるのは、` +
     `腕の慣性 (${fmt(GolfPhysics.ARM_I_HUB, 2)} kg·m²) が大きいから。グリップ端では ${name(hiI)} が ${signed(hiI.pct.I, 1)}%・${name(loI)} が ${signed(loI.pct.I, 1)}%。` +
     (drv && drv.pct.I < 0 && drv.pct.J > 0 ? `番手どうしでは 2 本の向きが違って見えるが、どちらも定義どおり (Driver は 5I より軽い (${fmt(drv.mass, 0)} g) が長いのでグリップ端の MOI は大きい → グリップ端では回しにくい側・肩まわりでは回しやすい側)。` : "") +
     `どこに付けるかで違う: 5I に 10 g を足すと肩まわりの MOI はヘッドで ${fmt(dHead, 2)}%・グリップ端から 18 cm で ${fmt(dGrip, 2)}% 増える。` +

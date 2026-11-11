@@ -1,6 +1,6 @@
 "use strict";
 
-const LABELS = { "50deg": "50°", "56deg": "56°", "48deg": "48°", "52deg": "52°" };
+const LABELS = new Proxy({}, { get: (o, k) => (typeof k === "string" && /^\d+deg$/.test(k) ? k.replace("deg", "°") : undefined) });
 const clubLabel = (c) => LABELS[c] || c;
 const fmtV = (v, d) => (v === null || v === undefined || !Number.isFinite(Number(v)) ? "—" : Number(v).toFixed(d));
 function el(tag, cls, text) {

@@ -1,7 +1,7 @@
 "use strict";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-const LABELS = { "50deg": "50°", "56deg": "56°", "48deg": "48°", "52deg": "52°" };
+const LABELS = new Proxy({}, { get: (o, k) => (typeof k === "string" && /^\d+deg$/.test(k) ? k.replace("deg", "°") : undefined) });
 
 const SHOW_KEY = "golflab-show-v1";
 const SERIES = [["mine", "自分の記録 (点と平均)"], ["total", "飛距離 (トータル)"], ["pga", "PGA 平均"], ["lpga", "LPGA 平均"]];
@@ -285,7 +285,7 @@ function renderSpecs(data) {
   const note = el("div", "legend");
   note.appendChild(el("span", "", "記 = 表の記載値 · 測 = 自分の測定値 · 算 = 計算 (Q14 = 重さ × (バランス点 − 35.56cm)・SW の元になる量) · 番手にマウスを乗せると出所"));
   note.appendChild(el("span", "", "使用中のチェックはクリックで切り替えられる (このブラウザだけに覚える・データは変えない)。" +
-    "使っていないクラブは薄い字。調べた候補 (候補の表) の数字はメーカーの仕様表の値で、自分の測定ではない (バランス点と Q14 は —)"));
+    "使っていないクラブは薄い字。候補の数字はメーカーの仕様表の値で、自分の測定ではない (バランス点と Q14 は —)"));
 
   for (const code of new Set(data.clubs.map((c) => c.measurement_status).filter(Boolean))) {
     note.appendChild(el("span", "", (MEASUREMENT_STATUS_JA[code] || "測った/記載: " + code)));
@@ -1063,7 +1063,7 @@ function drawSimOut(data) {
         "部品モデルの推定 (本当の MOI ではない)・腕は Lampsa 1975 の仮定"]);
     simTile(tiles, "バランス点 (SW から・cm)", `${fmt(club.balance_from_butt_cm, 1)} → ${fmt(bal.balance_cm, 1)}`,
       [`土台 ${clubLabel(p.club)} ${bal.sw_base} (測定) → 候補 ${bal.sw_cand} (SW の差 ${signed(dP, 1)} pt × ${fmt(GolfPhysics.SW_POINT_GCM, 0)} g·cm)`,
-        "土台のずれを持ち越した推定 (記載と実測の差が候補にも共通するかは確かめていない)"]);
+        "土台のずれを持ち越した推定 (記載と実測の差が候補にも共通するとは限らない)"]);
   }
   out.appendChild(tiles);
   const fig = el("div", "sim-fig");
@@ -1316,7 +1316,7 @@ function render(data) {
   trend.textContent = dated ? `📅 ${dated} 球` : "📅 日付なし — まだ描けない";
   trend.title = dated
     ? `日付つきの記録 ${dated} 球 (推移のグラフは次の版で)`
-    : "今の 17 球は撮った日が分からないの。これから貼ってもらう記録には日付を入れるから、増えたらここに推移を出すね。";
+    : `日付つきの記録はまだ無いの (日付の無い球 ${data.shots.length - dated} 球)。日付つきの記録が増えたら、ここに推移を出すね。`;
   renderSpecs(data);
 }
 
