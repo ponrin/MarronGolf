@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f8fa">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#151b23">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'">
 <title>弾道の計算モデル</title>
@@ -93,6 +96,9 @@
           title="打ち出しの条件を与えた時の 2D の参考の計算・パパにとっての最適値や理論上の上限ではない">2D の参考計算 ⓘ</button>
   <a class="Label cells-link" id="cells-link" href="index.html#shots/table" title="データの表 — 使う / 使わないをますで選ぶ">▦ 表 →</a>
   <a class="back" href="index.html#sim">← シミュレーション</a>
+  <button class="gear" type="button" id="settings-open" aria-label="設定" title="設定" aria-haspopup="dialog" aria-controls="settings" aria-expanded="false">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6.2"/><circle cx="12" cy="12" r="2.4"/><path class="teeth" d="M12 5.8V3M12 21v-2.8M5.8 12H3M21 12h-2.8M16.4 7.6l2-2M5.6 18.4l2-2M7.6 7.6l-2-2M18.4 18.4l-2-2"/></svg>
+  </button>
   <p class="info-body" id="note-full" hidden>「ボールの軌跡とシミュレーション」の線を引いている計算 (<code>swe3_detailed_design/src/ballistics.py</code> と、同じ計算を移した <code>swe3_detailed_design/view/physics.js</code>) の中身。
     数字はこのページを開いた時に <code>data.json</code> と <code>physics.js</code> から計算して出している (式や係数を直すと、このページも自動で合う)。
     これは<strong>打ち出しの条件を与えた時の 2D の参考の計算</strong>で、パパにとっての最適値や理論上の上限ではないよ。</p>
@@ -308,6 +314,25 @@ HS = C M^−n_M (Daish 1972 は n_M = 1/5.3) と掛けて一番速い M:   M_opt
     </a>
   </div>
 </nav>
+<div class="settings" id="settings" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+  <div class="settings-backdrop" data-settings-close></div>
+  <div class="settings-panel">
+    <div class="settings-head">
+      <h2 class="settings-title" id="settings-title">設定</h2>
+      <button class="settings-close" type="button" data-settings-close>閉じる</button>
+    </div>
+    <section class="settings-sec">
+      <h3>この端末の鍵</h3>
+      <p class="settings-note">この端末に覚えた鍵を消すと、次に開く時にまた合言葉を聞くよ (押すと確かめが出る)。</p>
+      <div class="settings-slot" id="settings-erase-slot"><p class="settings-note settings-pc">iPhone の公開の写しで出る</p></div>
+    </section>
+    <section class="settings-sec">
+      <h3>ホーム画面に置く</h3>
+      <div class="settings-slot" id="settings-hint-slot"></div>
+      <p class="settings-note">Safari の共有 → ホーム画面に追加 · 図は <a href="index.html#help" data-settings-close>使い方</a></p>
+    </section>
+  </div>
+</div>
 <script src="record_format.js"></script>
 <script src="decide.js"></script>
 <script src="store.js"></script>
@@ -316,5 +341,6 @@ HS = C M^−n_M (Daish 1972 は n_M = 1/5.3) と掛けて一番速い M:   M_opt
 <script src="physics.js"></script>
 <script src="cells.js"></script>
 <script src="model.js"></script>
+<script src="settings.js"></script>
 </body>
 </html>

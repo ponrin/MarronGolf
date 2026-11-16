@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
-<meta name="theme-color" content="#f6f8fa">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f8fa">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#151b23">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'">
 <title>GolfLab · ショット情報</title>
@@ -169,6 +171,9 @@
     <span class="app-name"><span class="ball">⛳</span>GolfLab</span>
     <span class="sep">|</span>
     <strong class="tab-name" id="tab-title">ショット情報</strong>
+    <button class="gear" type="button" id="settings-open" aria-label="設定" title="設定" aria-haspopup="dialog" aria-controls="settings" aria-expanded="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6.2"/><circle cx="12" cy="12" r="2.4"/><path class="teeth" d="M12 5.8V3M12 21v-2.8M5.8 12H3M21 12h-2.8M16.4 7.6l2-2M5.6 18.4l2-2M7.6 7.6l-2-2M18.4 18.4l-2-2"/></svg>
+    </button>
   </div>
 </header>
 <div id="error"></div>
@@ -469,6 +474,25 @@
     </a>
   </div>
 </nav>
+<div class="settings" id="settings" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+  <div class="settings-backdrop" data-settings-close></div>
+  <div class="settings-panel">
+    <div class="settings-head">
+      <h2 class="settings-title" id="settings-title">設定</h2>
+      <button class="settings-close" type="button" data-settings-close>閉じる</button>
+    </div>
+    <section class="settings-sec">
+      <h3>この端末の鍵</h3>
+      <p class="settings-note">この端末に覚えた鍵を消すと、次に開く時にまた合言葉を聞くよ (押すと確かめが出る)。</p>
+      <div class="settings-slot" id="settings-erase-slot"><p class="settings-note settings-pc">iPhone の公開の写しで出る</p></div>
+    </section>
+    <section class="settings-sec">
+      <h3>ホーム画面に置く</h3>
+      <div class="settings-slot" id="settings-hint-slot"></div>
+      <p class="settings-note">Safari の共有 → ホーム画面に追加 · 図は <a href="#help" data-settings-close>使い方</a></p>
+    </section>
+  </div>
+</div>
 <script src="record_format.js"></script>
 <script src="decide.js"></script>
 <script src="store.js"></script>
@@ -478,6 +502,7 @@
 <script src="cells.js"></script>
 <script src="shots_table.js"></script>
 <script src="tabs.js"></script>
+<script src="settings.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
