@@ -358,9 +358,9 @@ var GolfPhysics = (function () {
     var t = text.replace(/[！-～]/g, function (ch) {
       return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0);
     }).trim().toUpperCase();
-    if (t === "") return fail("SW が空 (例 C8・D0・D1.5)");
+    if (t === "") return fail("SW が空 (例 D2・D2.5・C9)");
     var m = SW_PATTERN.exec(t);
-    if (!m) return fail("SW は A〜F の 1 文字と 0〜9 の数字 (.5 まで) — 例 C8・D0・D1.5 (入力 \"" + text + "\")");
+    if (!m) return fail("SW は A〜F の 1 文字と 0〜9 の数字 (.5 まで) — 例 D2・D2.5・C9 (入力 \"" + text + "\")");
     return { ok: true, sw: t, points: (m[1].charCodeAt(0) - 68) * 10 + Number(m[2]) };
   }
 
@@ -668,7 +668,7 @@ var GolfPhysics = (function () {
   var PERCENT = 100;
   var SWING_PCT_LIMITS = [-20, 30];
   var TOURS = { pga: "PGA Tour", lpga: "LPGA Tour" };
-  var CAND_TOUR_CLUB = { "3W": "3-wood", "5W": "5-wood", "4I": "4 Iron" };
+  var CAND_TOUR_CLUB = { "3W": "3-wood" };
   var CAND_SPEC_KEYS = ["loft_deg", "length_in", "total_mass_g", "sw", "shaft_mass_g"];
   var CHANGE_KINDS = ["none", "weight", "swap"];
   var SWING_KINDS = ["none", "pct", "pga", "lpga"];

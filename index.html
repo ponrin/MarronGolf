@@ -2,12 +2,12 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy"
-      content="default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
+      content="default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'">
 <title>GolfLab</title>
-<style>  :root {
+<style>
+  :root {
     --fg: #1f2328; --fg-muted: #59636e; --canvas: #ffffff; --canvas-subtle: #f6f8fa;
     --border: #d1d9e0; --border-muted: #d8dee4; --accent: #0969da; --accent-soft: #ddf4ff;
     --success: #1a7f37; --attention: #9a6700; --attention-em: #bf8700; --danger: #d1242f; --track: #e6eaef;
@@ -70,17 +70,14 @@
   table.specs th .kind { margin-left: 4px; padding: 0 4px; border: 1px solid var(--border); border-radius: 3px;
                          font-size: 10px; font-weight: 500; color: var(--fg-muted); }
   .scroll { overflow-x: auto; }
-
   table.specs td.check-cell { width: 1%; text-align: center; }
   table.specs td.check-cell input { margin: 0; accent-color: var(--accent); }
   table.specs tr.cand td { color: var(--fg-muted); background: var(--canvas-subtle); }
-
   .controls { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--border-muted); border-radius: 6px; background: var(--canvas-subtle); }
   .control-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 12px; }
   .control-title { width: 44px; color: var(--fg-muted); font-weight: 600; }
   .check { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; }
   .check input { margin: 0; accent-color: var(--accent); }
-
   .seg { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
   .seg button { font: inherit; font-size: 12px; padding: 1px 12px; border: 1px solid var(--border); border-radius: 2em;
                 background: var(--canvas); color: var(--fg); cursor: pointer; }
@@ -89,7 +86,6 @@
   #traj-note { margin: 0 0 6px; line-height: 1.6; }
   #traj-excluded { margin: 8px 0 0; font-size: 12px; line-height: 1.6; }
   .empty { padding: 16px 12px; color: var(--fg-muted); font-size: 12px; }
-
   .Box-header .sim-check { margin-left: 0; }
   .sim-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0 0 8px; font-size: 12px; }
   details.sim-change { margin: 0 0 8px; border: 1px solid var(--border-muted); border-radius: 6px; background: var(--canvas-subtle); }
@@ -134,7 +130,6 @@
   .sim-section { margin: 14px 0 4px; font-size: 13px; font-weight: 600; }
   .sim-notes { margin: 10px 0 0; padding-left: 18px; line-height: 1.6; }
   .sim-notes li:empty { display: none; }
-
   button.info { font: inherit; font-size: 11px; line-height: 16px; min-width: 18px; height: 18px; padding: 0 4px; cursor: pointer;
                 border: 1px solid var(--accent); border-radius: 2em; background: transparent; color: var(--accent); white-space: nowrap; }
   button.info:hover, button.info[aria-expanded="true"] { background: var(--accent); color: #ffffff; }
@@ -161,21 +156,13 @@
   #error:empty { display: none; }
   #error { margin: 12px 16px; padding: 8px 12px; border: 1px solid var(--danger); border-radius: 6px; font-size: 12px; }
 </style>
-<meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#f6f8fa">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="GolfLab">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="manifest" href="manifest.json">
-<link rel="icon" href="icon-gl-192.png" type="image/png">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="golflab-v" content="1.1">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="mobile.css">
 </head>
 <body>
-
 <header class="top">
-  <span class="crumb"><strong>GolfLab</strong></span>
+  <span class="crumb">marron<span class="sep">/</span><strong>GolfLab</strong></span>
   <span class="Label">⛳ 記録の統計</span>
   <span class="muted" id="counts">…</span>
   <button class="info tag" type="button" data-for="note-full" aria-expanded="false"
@@ -183,14 +170,11 @@
   <button class="info tag warn" type="button" data-for="note-full" aria-expanded="false" id="flag-tag" hidden>◎ 要確認</button>
   <a class="Label cells-link" id="cells-link" href="data.html" title="データの表 — 使う / 使わないをますで選ぶ">▦ 表 →</a>
   <p class="info-body" id="note-full" hidden>数値はすべて <strong>X-SWING (室内シミュレーター) の画面の値</strong>。屋外で着地点を測った値ではないの。
-    <span id="flag-note"></span> 表で外したますは画面の中だけ (元のデータは全部の球のまま)。</p>
+    <span id="flag-note"></span> 表で外したますは画面の中だけ (集計の表 results/ は全部の球)。</p>
 </header>
 <div id="error"></div>
-
 <div id="alarm" role="alert"></div>
-
 <main>
-
   <section class="Box">
     <div class="Box-header"><h2 class="Box-title">番手ごとの記録</h2><span class="muted key" title="1 点 = 1 球 · 縦線 = 平均 · 番手の右 = 平均値">● 1 球 · │ 平均</span></div>
     <div class="Box-body small-multiples">
@@ -198,51 +182,45 @@
       <div id="carry-wrap">
         <h3>キャリーと飛距離</h3>
         <div id="carry"></div>
-
         <div class="legend"><span class="key" title="キャリー (X-SWING の画面の値)"><i id="lg-carry"></i>キャリー</span><span class="key" title="飛距離 = トータル (室内の値・ラン込み)"><i id="lg-total"></i>トータル</span><span class="key" title="確認が要る球 (消さずに残す)"><i id="lg-flag"></i>要確認</span><span id="lg-tour" class="key"></span></div>
-
       </div>
       <div class="small-multiples" id="metrics"></div>
     </div>
   </section>
-
   <section class="Box">
     <div class="Box-header"><h2 class="Box-title">ボールの軌跡とシミュレーション</h2><button class="info" type="button" data-for="traj-info" aria-expanded="false" title="計算の前提と注意 (押すと開く)">ⓘ</button><span class="muted key" title="横から見た絵 · 線 = 計算 (モデル値) · 印 = 測った値">─ 計算 · ◆ 測定</span><span class="muted sim-check key" id="sim-check"></span><a class="Box-link" href="model.html" title="計算モデルの詳細">式 →</a></div>
     <div class="Box-body">
       <div class="info-body" id="traj-info" hidden>
         <p id="traj-note"></p>
-        <div class="legend"><span>線 = 計算 (PGA 緑・LPGA ピンク・自分は青で 1 球 1 本・橙の点線は確認が要る球)</span><span>◆ ▲ ○ = 測ったキャリー (TrackMan の平均 / X-SWING の画面)</span><span>横棒 = 測った最高点</span><span>細いまっすぐな線 = 打ち出しの向き (横から見た打出角・軌跡がこの線より上 = 揚力が重力より強い間に上へ曲がった)</span><span>紫 = 変えた後 (計算・点線にしない・確認が要る球だけ今と同じ点線・打ち出しの向きの線も変えた後の打出角から)</span></div>
-
+        <div class="legend"><span>線 = 計算 (PGA 緑・LPGA ピンク・パパ青は 1 球 1 本・橙の点線は確認が要る球)</span><span>◆ ▲ ○ = 測ったキャリー (TrackMan の平均 / X-SWING の画面)</span><span>横棒 = 測った最高点</span><span>細いまっすぐな線 = 打ち出しの向き (横から見た打出角・軌跡がこの線より上 = 揚力が重力より強い間に上へ曲がった)</span><span>紫 = 変えた後 (計算・点線にしない・確認が要る球だけ今と同じ点線・打ち出しの向きの線も変えた後の打出角から)</span></div>
       <ul class="muted sim-notes" id="sim-notes" hidden>
         <li data-sim="weight">同じように振れたと仮定した計算 (長さ・握る位置・反発は同じ)・実施した変更ではない。</li>
-        <li data-sim="weight">スピンは衝突の比で変える・打出角はそのまま (近似)。ヘッドの質量が変わると法線と接線の比が違うので、本当は打出角も少し動く (逆算 → 前向きとの差は小さいが、足す重さが大きいほど大きくなる)。MacKenzie 2015 のドライバーの実験では、重いヘッドで動的ロフトとスピンが増えた (当たり方の変化は入れていない)。</li>
+        <li data-sim="weight">スピンは衝突の比で変える・打出角はそのまま (近似)。ヘッドの質量が変わると法線と接線の比が違うので、本当は打出角も少し動く。MacKenzie 2015 のドライバーの実験では、重いヘッドで動的ロフトとスピンが増えた (当たり方の変化は入れていない)。</li>
         <li data-sim="weight">人は計算どおりに反応しない (Haeufle 2012: シャフト +22 g で 12 人中 10 人は差が検出されなかった)。</li>
         <li data-sim="weight">ヘッドに付けた時のボールスピードとスピンの補正は、法線方向・接線方向の衝突の式による近似 (Penner 2001)。シャフト・グリップに付けた時は衝突への寄与を 0 とする簡略化。</li>
         <li data-sim="weight">MOI は部品モデルの推定 I_est (一様なシャフト・ヘッド自身の慣性は無視)。m·B² より大きいのはシャフトとグリップの項を足したため。</li>
-        <li data-sim="swap">カタログの参考値から計算した見積もり・買った・替えた記録ではない。候補の仕様はカタログの参考値 (候補の表) で、実測とはずれることがある。全部の欄を手で書き換えられる。</li>
-        <li data-sim="swap">土台との条件の近さは、自分の記録 (土台の番手) とロフト・長さがどれだけ近いかの目安で、当てはまりの保証ではない (カタログの値の確かさとは別)。</li>
+        <li data-sim="swap">カタログの参考値から計算した見積もり・買った・替えた記録ではない。候補の仕様はカタログの参考値 (data/candidate_clubs.csv) で、パパの実測とはずれることがある。全部の欄を手で書き換えられる。</li>
+        <li data-sim="swap">土台との条件の近さは、パパの記録 (土台の番手) とロフト・長さがどれだけ近いかの目安で、当てはまりの保証ではない (カタログの値の確かさとは別)。</li>
         <li data-sim="swap">θ・e・p・δ は当てはめの値 (この式に当てはめた値)。本物のスピンロフト・反発係数・入射角ではなく、δ も動的ロフトそのものではない (静的ロフトからの補正角)。転がりのモデルのずれ・ヘッド質量の誤差・計測誤差を吸い込む。</li>
-        <li data-sim="swap">候補にも土台の e をそのまま使っている (e の持ち越し)。クラブが変わっても同じとは限らない (Penner 2001 も e を衝突速度に依存させている)。逆算には記録の HS がそのまま入る。</li>
-        <li data-sim="swap">計算モデルの詳細のツアーの答え合わせ (ツアー平均の 5W から 3W・Driver を予測) では打出角が低く出た。キャリーは 2D 弾道による参考の差 (計算 − 計算)。</li>
-        <li data-sim="swap">バランス点は SW の差から出した、土台のずれを持ち越した推定 (記載と実測の差が候補にも共通するとは限らない)。</li>
+        <li data-sim="swap">候補にも土台の e をそのまま使っている (e の持ち越し)。クラブが変わっても同じかは確かめていない (Penner 2001 も e を衝突速度に依存させている)。逆算には記録の HS がそのまま入る。</li>
+        <li data-sim="swap">計算モデルの詳細のツアーの答え合わせ (ツアー平均の 5W から 3W・Driver を予測) では打出角が低く出た。キャリーは独立に検証していない 2D 弾道による参考の差 (計算 − 計算)。</li>
+        <li data-sim="swap">バランス点は SW の差から出した、土台のずれを持ち越した推定 (記載と実測の差が候補にも共通する計器のずれかは確かめていない)。</li>
         <li data-sim="swing">振りを変えた線は、当てはめた当たり方のまま、HS だけ変えた仮定の軌跡 (PGA 選手の球になるわけではない・速さで当たり方が変わることは入れていない)。</li>
-        <li data-sim="align">「そろえる」は球ごとの HS をその番手のツアー平均 (TrackMan 2023 の外部の平均・自分の記録ではない) にする。HS の式の比を掛けない。使わないます (表 → で選ぶ) の値は計算に渡さない。</li>
+        <li data-sim="align">「そろえる」は球ごとの HS をその番手のツアー平均 (TrackMan 2023 の外部の平均・パパの記録ではない) にする。HS の式の比を掛けない。使わないます (表 → で選ぶ) の値は計算に渡さない。</li>
         <li data-sim="hs">HS は 2 つの式で見積もった: HS' / HS = (R + L') / (R + L) × (X / X')^n (腕 + クラブの比較式 × クラブの MOI の補正 (経験)・R = 肩から手首・L = クラブの長さ・重さを足す時は長さが同じなので MOI の補正だけ)。X = グリップ端の MOI (中心) か、肩まわりの MOI (腕 + クラブ・腕の質量と慣性は Lampsa 1975 の仮定)。指数 n はグリップ端の MOI に当てはめた値で、肩まわりに使うのは転用。二重振り子から導いた理論式ではなく、2 つの式が本当の値を挟む保証もない。替える時は 3W もウェッジも、クラブの種類・長さの領域をまたぐ転用。</li>
         <li data-sim="hs" id="sim-arm"></li>
-        <li data-sim="band">幅は選んだ HS の式 (グリップ端 / 肩まわりの MOI) と n (0.19〜0.28) の感度 (シャフト重量が未確定の番手は仮定 2 通りも) で、実際の誤差の範囲ではない。e の移植・摩擦・打点・打ち方・弾道モデルの誤差を含まない。</li>
+        <li data-sim="band">幅は選んだ HS の式 (グリップ端 / 肩まわりの MOI) と n (0.19〜0.28) の感度 (4U はシャフトの仮定 2 通りも) で、実際の誤差の範囲ではない。e の移植・摩擦・打点・打ち方・弾道モデルの誤差を含まない。</li>
         <li data-sim="align">そろえる時は HS を直接決めるので、HS の式の幅を流用しない (幅なし)。</li>
         <li data-sim="noband">幅が無いのは不確かさがゼロという意味ではない (x% は倍率 1 つ・そろえる時は HS を直接決めるので、HS の式の感度の幅が無いだけ)。</li>
-        <li data-sim="changed">計算の一致 (自己点検・変えない時の差 0) は予測が確かという意味ではない。キャリーの差は「計算 − 計算」だけで、画面のキャリーに差を足した値ではない。</li>
+        <li data-sim="changed">計算の一致 (自己点検・変えない時の差 0) は予測の確かさの検証ではない。キャリーの差は「計算 − 計算」だけで、画面のキャリーに差を足した値ではない。</li>
       </ul>
       </div>
-
       <div class="seg" id="traj-clubs"></div>
-
       <div class="sim-row">
         <label class="check" title="ツアーの線 (PGA・LPGA の平均) · 「変える」を開くと自動で外す · 閉じると戻す"><input type="checkbox" id="sim-tour" checked><span>ツアーの線</span></label>
       </div>
       <details class="sim-change" id="sim-change">
-        <summary title="自分の球ごとに「今」と「変えた後」を重ねる">変える (クラブ・重さ・振り)</summary>
+        <summary title="パパの球ごとに「今」と「変えた後」を重ねる">変える (クラブ・重さ・振り)</summary>
         <div class="sim-panel">
           <div class="sim-stop" id="sim-stop" hidden></div>
           <div class="sim-line" id="sim-change-row"><span class="seg-title">クラブ</span>
@@ -251,7 +229,6 @@
             <label class="check"><input type="radio" name="sim-change" value="swap"><span>替える</span></label>
           </div>
           <p class="sim-why" id="sim-why-change"></p>
-
           <div id="sim-weight" hidden>
             <div class="seg" id="sim-mode"></div>
             <div class="sim-inputs">
@@ -261,7 +238,6 @@
                 <span class="muted" id="sim-r-hint">グリップ端から重さの重心まで</span></label>
             </div>
           </div>
-
           <div id="sim-swap" hidden>
             <div class="seg" id="sim-cands"></div>
             <div class="sim-inputs" id="sim-spec">
@@ -274,7 +250,6 @@
             <div class="sim-labels" id="sim-labels"></div>
             <p class="sim-why" id="sim-why-swap"></p>
           </div>
-
           <div class="sim-line" id="sim-swing-row"><span class="seg-title">振り</span>
             <label class="check"><input type="radio" name="sim-swing" value="none" checked><span>そのまま</span></label>
             <label class="check"><input type="radio" name="sim-swing" value="pct"><input class="sim-x" id="sim-x" type="number" step="1" min="-20" max="30" value="10" inputmode="numeric"><span>% 速く (−20〜+30)</span></label>
@@ -284,13 +259,12 @@
           <p class="sim-why" id="sim-why-swing"></p>
         </div>
       </details>
-
       <div id="traj"></div>
       <div class="legend">
         <span class="key" title="線 = 計算 (モデル値)・測った軌跡ではない"><b>計算</b></span>
         <span class="key" title="PGA 平均の打出条件から計算した線 (緑)"><i class="ln" style="border-color:var(--pga)"></i>PGA</span>
         <span class="key" title="LPGA 平均の打出条件から計算した線 (ピンク)"><i class="ln" style="border-color:var(--lpga)"></i>LPGA</span>
-        <span class="key" title="自分の球から計算した線 (青・1 球 1 本)"><i class="ln" style="border-color:var(--accent)"></i>自分</span>
+        <span class="key" title="パパの球から計算した線 (青・1 球 1 本)"><i class="ln" style="border-color:var(--accent)"></i>パパ</span>
         <span class="key" title="橙の点線 = 確認が要る球 (消さずに残す)"><i class="ln dash" style="border-color:var(--attention-em)"></i>要確認</span>
         <span class="key" id="lg-after" hidden title="紫 = 変えた後 (計算・点線にしない・確認が要る球だけ今と同じ点線・打ち出しの向きの線も変えた後の打出角から)"><span class="swatch" id="lg-after-sw"></span>変えた後</span>
         <span class="key-sep">|</span>
@@ -304,23 +278,23 @@
       <div class="muted" id="traj-excluded" hidden><button class="info tag warn" type="button" data-for="traj-excluded-list" aria-expanded="false" id="traj-excluded-tag"></button><div class="info-body" id="traj-excluded-list" hidden></div></div>
     </div>
   </section>
-
   <section class="Box">
     <div class="Box-header"><h2 class="Box-title">推移</h2></div>
     <div class="empty" id="trend"></div>
   </section>
-
   <section class="Box">
-    <div class="Box-header"><h2 class="Box-title">クラブの仕様</h2><button class="info" type="button" data-for="specs-info" aria-expanded="false" title="記・測・算の意味と出所 (押すと開く)">ⓘ</button><span class="muted key" title="クラブの表 · 候補は候補の表">csv</span></div>
-    <div class="Box-body scroll"><div class="info-body" id="specs-info" hidden><p>出所: クラブの表 · 候補は候補の表</p></div><div id="specs"></div></div>
+    <div class="Box-header"><h2 class="Box-title">クラブの仕様</h2><button class="info" type="button" data-for="specs-info" aria-expanded="false" title="記・測・算の意味と出所 (押すと開く)">ⓘ</button><span class="muted key" title="data/clubs.csv · 候補は data/candidate_clubs.csv">csv</span></div>
+    <div class="Box-body scroll"><div class="info-body" id="specs-info" hidden><p>出所: data/clubs.csv · 候補は data/candidate_clubs.csv</p></div><div id="specs"></div></div>
   </section>
-
   <section class="Box">
     <div class="Box-header"><h2 class="Box-title">クラブのフロー</h2><span class="muted key" title="番手の順に線でつなぐ · 点線 = 直線の当てはめ (目安)"><i class="ln dash" style="border-color:var(--fg-muted)"></i>当てはめ</span></div>
     <div class="Box-body small-multiples" id="flows"></div>
   </section>
-
 </main>
+<script src="record_format.js"></script>
+<script src="decide.js"></script>
+<script src="store.js"></script>
+<script src="passphrase.js"></script>
 <script src="gate.js"></script>
 <script src="physics.js"></script>
 <script src="cells.js"></script>

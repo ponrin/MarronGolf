@@ -2,12 +2,12 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy"
-      content="default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
+      content="default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'">
 <title>GolfLab データ</title>
-<style>  :root {
+<style>
+  :root {
     --fg: #1f2328; --fg-muted: #59636e; --canvas: #ffffff; --canvas-subtle: #f6f8fa;
     --border: #d1d9e0; --border-muted: #d8dee4; --accent: #0969da; --accent-soft: #ddf4ff;
     --attention: #9a6700; --attention-em: #bf8700; --danger: #d1242f;
@@ -56,7 +56,6 @@
   .info-body p { margin: 0 0 6px; } .info-body p:last-child { margin-bottom: 0; }
   .top .info-body { flex-basis: 100%; margin: 0; }
   [hidden] { display: none !important; }
-
   table.cells { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
   table.cells th, table.cells td { padding: 0; border-top: 1px solid var(--border-muted); white-space: nowrap; }
   table.cells th { color: var(--fg-muted); font-weight: 600; text-align: right; padding: 5px 8px; border-top: none; }
@@ -82,21 +81,13 @@
   #error:empty { display: none; }
   #error { margin: 12px 16px; padding: 8px 12px; border: 1px solid var(--danger); border-radius: 6px; font-size: 12px; }
 </style>
-<meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#f6f8fa">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="GolfLab">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="manifest" href="manifest.json">
-<link rel="icon" href="icon-gl-192.png" type="image/png">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="golflab-v" content="1.1">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="mobile.css">
 </head>
 <body>
-
 <header class="top">
-  <span class="crumb"><a href="index.html">GolfLab</a><span class="sep">/</span><strong>データ</strong></span>
+  <span class="crumb">marron<span class="sep">/</span><a href="index.html">GolfLab</a><span class="sep">/</span><strong>データ</strong></span>
   <span class="Label">▦ 使う / 使わない</span>
   <button class="info tag" type="button" data-for="note-full" aria-expanded="false"
           title="数値はすべて X-SWING (室内シミュレーター) の画面の値。屋外で着地点を測った値ではない">画面の値 ⓘ</button>
@@ -106,9 +97,7 @@
   <p class="info-body" id="note-full" hidden>数値はすべて <strong>X-SWING (室内シミュレーター) の画面の値</strong>。屋外で着地点を測った値ではない。</p>
 </header>
 <div id="error"></div>
-
 <main>
-
   <section class="Box">
     <div class="Box-header">
       <h2 class="Box-title">ます</h2>
@@ -123,13 +112,16 @@
         <p>使わないますは、記録の統計の図の平均・n=、シミュレーション、計算モデルの HS の答え合わせで使わない。ほかの項目のますは使う。</p>
         <p>橙の縁 = 外れ値の候補: HS の印 (hs_…) → HS · high_smash_review → ミート率 · low_spin_review → バックスピン。</p>
         <p>このブラウザだけに覚える (data.json は変えない)。</p>
-        <p>表で外したますは画面の中だけ (元のデータは全部の球のまま)。</p>
+        <p>表で外したますは画面の中だけ (集計の表 results/ は全部の球)。</p>
       </div>
       <div class="scroll" id="table"></div>
     </div>
   </section>
-
 </main>
+<script src="record_format.js"></script>
+<script src="decide.js"></script>
+<script src="store.js"></script>
+<script src="passphrase.js"></script>
 <script src="gate.js"></script>
 <script src="cells.js"></script>
 <script src="data.js"></script>

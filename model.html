@@ -2,12 +2,12 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy"
-      content="default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
+      content="default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'">
 <title>弾道の計算モデル</title>
-<style>  :root {
+<style>
+  :root {
     --fg: #1f2328; --fg-muted: #59636e; --canvas: #ffffff; --canvas-subtle: #f6f8fa;
     --border: #d1d9e0; --border-muted: #d8dee4; --accent: #0969da; --accent-soft: #ddf4ff;
     --attention-em: #bf8700; --danger: #d1242f; --grid: #eaeef2; --pga: #1a7f37; --lpga: #bf3989;
@@ -58,7 +58,6 @@
   ul { margin: 4px 0; padding-left: 20px; }
   li { margin: 2px 0; }
   a { color: var(--accent); }
-
   .Box-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   button.info { font: inherit; font-size: 11px; line-height: 16px; min-width: 18px; height: 18px; padding: 0 4px; cursor: pointer;
                 border: 1px solid var(--accent); border-radius: 2em; background: transparent; color: var(--accent); white-space: nowrap; vertical-align: 1px; }
@@ -82,31 +81,22 @@
   #error:empty { display: none; }
   #error { margin: 12px 16px; padding: 8px 12px; border: 1px solid var(--danger); border-radius: 6px; font-size: 12px; }
 </style>
-<meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#f6f8fa">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="GolfLab">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="manifest" href="manifest.json">
-<link rel="icon" href="icon-gl-192.png" type="image/png">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="golflab-v" content="1.1">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="mobile.css">
 </head>
 <body>
-
 <header class="top">
-  <span class="crumb">GolfLab<span class="sep">/</span><strong>弾道の計算モデル</strong></span>
+  <span class="crumb">marron<span class="sep">/</span>GolfLab<span class="sep">/</span><strong>弾道の計算モデル</strong></span>
   <button class="info tag" type="button" data-for="note-full" aria-expanded="false"
-          title="打ち出しの条件を与えた時の 2D の参考の計算・自分にとっての最適値や理論上の上限ではない">2D の参考計算 ⓘ</button>
+          title="打ち出しの条件を与えた時の 2D の参考の計算・パパにとっての最適値や理論上の上限ではない">2D の参考計算 ⓘ</button>
   <a class="Label cells-link" id="cells-link" href="data.html" title="データの表 — 使う / 使わないをますで選ぶ">▦ 表 →</a>
   <a class="back" href="index.html">← GolfLab に戻る</a>
-  <p class="info-body" id="note-full" hidden>「ボールの軌跡とシミュレーション」の線を引いている計算 (弾道モデルと、同じ計算を移した <code>physics.js</code>) の中身。
+  <p class="info-body" id="note-full" hidden>「ボールの軌跡とシミュレーション」の線を引いている計算 (<code>swe3_detailed_design/src/ballistics.py</code> と、同じ計算を移した <code>swe3_detailed_design/view/physics.js</code>) の中身。
     数字はこのページを開いた時に <code>data.json</code> と <code>physics.js</code> から計算して出している (式や係数を直すと、このページも自動で合う)。
-    これは<strong>打ち出しの条件を与えた時の 2D の参考の計算</strong>で、自分にとっての最適値や理論上の上限ではないよ。</p>
+    これは<strong>打ち出しの条件を与えた時の 2D の参考の計算</strong>で、パパにとっての最適値や理論上の上限ではないよ。</p>
 </header>
 <div id="error"></div>
-
 <main>
 
   <section class="Box">
@@ -129,19 +119,14 @@
           <marker id="ah-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="var(--gravity)"/></marker>
           <marker id="ah-v" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="var(--accent)"/></marker>
         </defs>
-
         <line x1="170" y1="140" x2="300" y2="79" stroke="var(--accent)" stroke-width="2.5" marker-end="url(#ah-v)"/>
         <text x="304" y="74">速度 v</text>
-
         <line x1="170" y1="140" x2="70" y2="187" stroke="var(--drag)" stroke-width="2.5" marker-end="url(#ah-drag)"/>
         <text x="18" y="206" fill="var(--drag)">空気抵抗 Fd</text>
-
         <line x1="170" y1="140" x2="123" y2="40" stroke="var(--lift)" stroke-width="2.5" marker-end="url(#ah-lift)"/>
         <text x="64" y="30" fill="var(--lift)">揚力 Fl</text>
-
         <line x1="170" y1="140" x2="170" y2="236" stroke="var(--gravity)" stroke-width="2.5" marker-end="url(#ah-g)"/>
         <text x="178" y="236" class="dim">重力 mg</text>
-
         <circle cx="170" cy="140" r="16" fill="var(--canvas)" stroke="var(--fg)" stroke-width="1.5"/>
         <path d="M190,128 A24,24 0 0 0 158,118" fill="none" stroke="var(--fg-muted)" stroke-width="1.5" marker-end="url(#ah-g)"/>
         <text x="196" y="122" class="dim">バックスピン ω</text>
@@ -176,7 +161,7 @@ dω/dt = −k ω                           (スピンの減り方)</div>
   </section>
 
   <section class="Box">
-    <div class="Box-header"><h2 class="Box-title" title="弾道の係数">4. 定数</h2></div>
+    <div class="Box-header"><h2 class="Box-title" title="data/ballistics_config.json">4. 定数</h2></div>
     <div class="Box-body scroll" id="consts"></div>
   </section>
 
@@ -189,10 +174,10 @@ dω/dt = −k ω                           (スピンの減り方)</div>
       <div class="info-body" id="i5" hidden>
       <ul>
         <li>Cd と Cl の 6 つの係数・Sp の上限・積分の作り: OpenFlight の説明 (<a href="https://github.com/open-flight/openflight/blob/main/docs/how-it-works/ballistics.md">ballistics.md</a>)。
-          <strong>元の研究 (Ferguson ほか 2022) を再掲した Ferguson の修士論文 (Waterloo 大学・2023) 第 3 章の式 3.15 と同じ 6 係数</strong>
+          <strong>元の研究 (Ferguson ほか 2022) を再掲した Ferguson の修士論文 (Waterloo 大学・2023) 第 3 章の式 3.15 と 6 係数の一致を確認</strong>
           (<a href="https://uwspace.uwaterloo.ca/bitstreams/a9cd0c81-1120-4f22-8066-c78bd9420237/download">修士論文</a>)。</li>
         <li>スピンの減り方 (1 秒に 4%・時定数 25 秒): 桁は Smits & Smith の結果を整理した Nathan の値 (時定数 23.8 秒) と合う。
-          ただし<strong>元の研究は回転の抵抗 (C_M = 0.01 Sp) で減らしていて、一定の 4% ではない</strong> — この組み合わせは元のモデルそのままの再現ではない。OpenFlight の引用先はサッカーボールの論文で、ゴルフ球に対する根拠は示されていない。</li>
+          ただし<strong>元の研究は回転の抵抗 (C_M = 0.01 Sp) で減らしていて、一定の 4% ではない</strong> — この組み合わせは元のモデルそのままの再現ではない。OpenFlight の引用先はサッカーボールの論文で、ゴルフ球の根拠は確かめられていない。</li>
         <li>元の研究が係数を合わせた相手はキャリー・最高点・左右の位置で、<strong>落下角は合わせる対象に入っていない</strong>。</li>
       </ul>
       </div>
@@ -210,13 +195,12 @@ dω/dt = −k ω                           (スピンの減り方)</div>
 
   <section class="Box" id="swing">
     <div class="Box-header"><h2 class="Box-title" title="ヘッドスピードとボールスピードの式 (クラブの長さ・重さ)">7. HS とボールスピードの式</h2><button class="info" type="button" data-for="i7" aria-expanded="false" title="説明 (押すと開く)">ⓘ</button><span class="Label warn" id="excl-count" hidden></span></div>
-
     <div class="Box-body">
-      <p class="info-body" id="i7" hidden>同じ式は Cross 2005・Sharp 2009 などに載っている (原型は Jorgensen 1970 など)。
+      <p class="info-body" id="i7" hidden>Jorgensen 1970 などの原典は読めず、同じ式を本文で書いている Cross 2005・Sharp 2009 などで確かめた。
         <strong>どの式も「同じように振れたら」の計算で、クラブの仕様だけでは HS の高さは決まらない</strong> (人ごとの係数が要る)。</p>
 
       <h3 class="muted" title="腕とクラブの 2 本の振り子">7-1. 二重振り子 <button class="info" type="button" data-for="i71" aria-expanded="false" title="説明 (押すと開く)">ⓘ</button></h3>
-      <div class="info-body" id="i71" hidden>Cross 2005 の式 5 (Lagrange 方程式から導かれる形)。原型は Williams 1967、Cochran &amp; Stobbs 1968・Jorgensen 1970 も同じ形。</div>
+      <div class="info-body" id="i71" hidden>Cross 2005 の式 5 (Lagrange から導いて確認)。原型は Williams 1967、Cochran &amp; Stobbs 1968・Jorgensen 1970 も同じ形。</div>
       <div class="two">
         <svg viewBox="0 0 360 250" role="img" aria-label="二重振り子の図: ハブ・腕・手首・クラブ">
           <circle cx="110" cy="70" r="6" fill="var(--fg)"/>
@@ -251,7 +235,7 @@ dω/dt = −k ω                           (スピンの減り方)</div>
 
       <h3 class="muted" title="MOI の指数 n">7-2. 重さと長さ → HS <button class="info" type="button" data-for="i72" aria-expanded="false" title="説明 (押すと開く)">ⓘ</button></h3>
       <div class="info-body" id="i72" hidden>注意: 二重振り子では重さを変えるとほどけ方や腕とクラブのエネルギーの分け方も変わるので、n = 1/2 は上限ではない。
-        グリップ端を中心に回すと置く式 (HS ∝ L・HS ∝ L^(1 − 2n)・式 M) は、肩を中心に腕ごと回る半径 (腕の分) を無視するので理論式として使わない (長さの扱いの話で、下の MOI の補正とは別)。
+        グリップ端を中心に回すと置く式 (HS ∝ L・HS ∝ L^(1 − 2n)・式 M) は、肩を中心に腕ごと回る半径 (腕の分) を無視するので理論式として使わない (外した — 長さの扱いの話で、下の MOI の補正とは別)。
         F_X は二重振り子から導いた理論式ではない (角速度の比やリリースは解いていない)。指数 n ≈ 0.25〜0.26 はクラブのグリップ端まわりの MOI に当てはめた値で、肩まわりの J に使うのは転用。</div>
       <div class="eq">HS = C / I^n      (I = グリップ端まわりの MOI・C = 人ごとの係数)  — Cross & Nathan 2009</div>
       <div class="scroll"><table class="t">
@@ -270,15 +254,15 @@ HS' / HS = F_X = (R + L') / (R + L) × (X / X')^n      (長さが同じなら前
          (腕 = Lampsa 1975 の質量・慣性・m = 総重量・b = 部品モデルの重心・一直線の配置を仮定)
   n = 0.19 / 0.25 / 0.28 (中心 0.25) · 幅 = {I, J} × n の試算の最小〜最大 (本当の値を挟む保証はなく、誤差の範囲でもない)</div>
 
-      <h3 class="muted" title="横 = クラブの長さ・縦 = HS">7-3. 自分の記録と式 <button class="info" type="button" data-for="i73" aria-expanded="false" title="説明 (押すと開く)">ⓘ</button></h3>
+      <h3 class="muted" title="横 = クラブの長さ・縦 = HS">7-3. パパの記録と式 <button class="info" type="button" data-for="i73" aria-expanded="false" title="説明 (押すと開く)">ⓘ</button></h3>
       <div class="info-body" id="i73" hidden><div class="muted" id="swing-note"></div></div>
       <div class="ctl">
         <label>腕の長さ (肩から手首) <input type="range" id="arm-len" min="0.40" max="1.00" step="0.001" value="0.615"> <strong id="arm-len-v">0.615 m</strong> <span class="muted" id="arm-len-src">(Lampsa 0.615・White 0.67)</span></label>
-        <label><input type="checkbox" id="eval-wedge"> ウェッジ (PW と度数の番手) も答え合わせに入れる</label>
+        <label><input type="checkbox" id="eval-wedge"> ウェッジ (PW・50°) も答え合わせに入れる</label>
       </div>
       <div id="swing-chart"></div>
-      <h3 class="muted" title="自分の記録との答え合わせ">どの式が一番合うか <button class="info" type="button" data-for="i73b" aria-expanded="false" title="説明 (押すと開く)">ⓘ</button></h3>
-      <div class="info-body" id="i73b" hidden><div class="muted" id="swing-acc-note"></div><div class="muted" id="swing-next">確かさを上げるには: 番手ごとに別の日の記録を増やす・クラブの質量と重心を測る・振り方の条件をそろえる。</div></div>
+      <h3 class="muted" title="パパの記録との答え合わせ">どの式が一番合うか <button class="info" type="button" data-for="i73b" aria-expanded="false" title="説明 (押すと開く)">ⓘ</button></h3>
+      <div class="info-body" id="i73b" hidden><div class="muted" id="swing-acc-note"></div><div class="muted" id="swing-next">次に測るもの: ① Driver・5W・4U・5I・7I・9I を別の日に 2 回 × 各 10 球 (番手の順番を入れ替え・全部の球と測定エラーと打ち方を記録) ② 6I・8I・PW・50° も同じ条件で・ウェッジはフルショットかコントロールかを分ける ③ 握る位置・手首からヘッドまで・質量・重心・MOI を確かめる ④ 動画で腕とクラブの角度の時間変化が取れたら、二重振り子を少ないパラメータで合わせて、別の日の記録で確かめる。X-SWING の HS の出し方 (映像からか・再現性) も確かめたい。</div></div>
       <div class="scroll" id="swing-acc"></div>
       <h3 class="muted" title="MOI の補正分 (グリップ端 / 肩まわり) — 腕 + クラブの線と、MOI の補正をかけた点のすき間">MOI の補正分 <button class="info" type="button" data-for="i73c" aria-expanded="false" title="説明 (押すと開く)">ⓘ</button></h3>
       <div class="info-body" id="i73c" hidden><div class="muted" id="swing-mass-note"></div></div>
@@ -295,13 +279,18 @@ HS = C M^−n_M (Daish 1972 は n_M = 1/5.3) と掛けて一番速い M:   M_opt
   </section>
 
   <section class="Box">
-    <div class="Box-header"><h2 class="Box-title">8. このモデルが扱わないこと</h2><button class="info" type="button" data-for="i8" aria-expanded="false" title="説明 (押すと開く)">ⓘ</button></div>
+    <div class="Box-header"><h2 class="Box-title">8. 確かめたこと・確かめていないこと</h2><button class="info" type="button" data-for="i8" aria-expanded="false" title="説明 (押すと開く)">ⓘ</button></div>
     <div class="Box-body">
-      <div class="info-body" id="i8" hidden><ul><li>屋外で着地点を測った値との一致 (X-SWING の画面の値も、屋外の独立した測定ではない)</li><li>落下角 (上の答え合わせでは計算がいつも浅い)・止まりやすさ</li><li>ボールの銘柄・気温・標高の違い (空気密度は海面・15℃の 1.225 kg/m³ で固定)</li><li>サイドスピン・風・地面の跳ねと転がり (トータルは計算しない)</li></ul></div>
+      <div class="info-body" id="i8" hidden><strong>確かめたこと (計算の作りの検査)</strong><ul><li>空気が無ければ (ρ = 0) きれいな放物線になり、解析解と一致 (テスト)</li><li>刻みを半分にしてもキャリーがほぼ変わらない (収束・テスト)</li><li>画面の JavaScript の計算と Python の計算が相対 1e-9 で一致 (テスト・画面を開くたびの自己点検)</li><li>式・単位・力の向きを読んで検算</li></ul><strong>確かめていないこと</strong><ul><li>屋外で着地点を測った値との一致 (X-SWING の画面の値も、屋外の独立した測定ではない)</li><li>落下角 (上の答え合わせでは計算がいつも浅い)・止まりやすさ</li><li>ボールの銘柄・気温・標高の違い (空気密度は海面・15℃の 1.225 kg/m³ で固定)</li><li>サイドスピン・風・地面の跳ねと転がり (トータルは計算しない)</li></ul></div>
+      <ul class="checks"><li class="ok" title="空気が無ければ (ρ = 0) きれいな放物線になり、解析解と一致 (テスト)">ρ = 0 → 放物線</li><li class="ok" title="刻みを半分にしてもキャリーがほぼ変わらない (収束・テスト)">刻み半分 → 収束</li><li class="ok" title="画面の JavaScript の計算と Python の計算が相対 1e-9 で一致 (テスト・画面を開くたびの自己点検)">JS = Python</li><li class="ok" title="式・単位・力の向きを読んで検算">式の検算</li></ul>
       <ul class="checks"><li class="ng" title="屋外で着地点を測った値との一致 (X-SWING の画面の値も、屋外の独立した測定ではない)">屋外の着地点</li><li class="ng" title="落下角 (上の答え合わせでは計算がいつも浅い)・止まりやすさ">落下角・止まりやすさ</li><li class="ng" title="ボールの銘柄・気温・標高の違い (空気密度は海面・15℃の 1.225 kg/m³ で固定)">銘柄・気温・標高</li><li class="ng" title="サイドスピン・風・地面の跳ねと転がり (トータルは計算しない)">横・風・転がり</li></ul>
     </div>
   </section>
 </main>
+<script src="record_format.js"></script>
+<script src="decide.js"></script>
+<script src="store.js"></script>
+<script src="passphrase.js"></script>
 <script src="gate.js"></script>
 <script src="physics.js"></script>
 <script src="cells.js"></script>

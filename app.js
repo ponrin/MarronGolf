@@ -1,17 +1,17 @@
 "use strict";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-const LABELS = new Proxy({}, { get: (o, k) => (typeof k === "string" && /^\d+deg$/.test(k) ? k.replace("deg", "°") : undefined) });
+const LABELS = { "50deg": "50°", "56deg": "56°", "48deg": "48°", "52deg": "52°" };
 
 const SHOW_KEY = "golflab-show-v1";
-const SERIES = [["mine", "自分の記録 (点と平均)"], ["total", "飛距離 (トータル)"], ["pga", "PGA 平均"], ["lpga", "LPGA 平均"]];
+const SERIES = [["mine", "パパの記録 (点と平均)"], ["total", "飛距離 (トータル)"], ["pga", "PGA 平均"], ["lpga", "LPGA 平均"]];
 const SHOW = Object.fromEntries(SERIES.map(([k]) => [k, true]));
 try {
   const saved = JSON.parse(localStorage.getItem(SHOW_KEY) || "{}");
   for (const k of Object.keys(SHOW)) if (typeof saved[k] === "boolean") SHOW[k] = saved[k];
-} catch (e) {  }
+} catch (e) {   }
 function saveShow() {
-  try { localStorage.setItem(SHOW_KEY, JSON.stringify(SHOW)); } catch (e) {  }
+  try { localStorage.setItem(SHOW_KEY, JSON.stringify(SHOW)); } catch (e) {   }
 }
 const tourKey = (t) => (/^LPGA/i.test(t.tour) ? "lpga" : "pga");
 const GAP_WIDE = 15;
@@ -74,9 +74,9 @@ function dotPlot(data, opts) {
   const root = svg("svg", { viewBox: `0 0 ${W} ${H}`, role: "img" });
   const grid = svg("g", { class: "grid" });
   const axis = svg("g", { class: "axis" });
-  for (let v = lo, tk = 0, te = Math.max(1, Math.ceil(30 / Math.max(1e-9, (W - left - right) * step / ((hi - lo) || 1)))); v <= hi + 1e-9; v += step, tk++) {
+  for (let v = lo; v <= hi + 1e-9; v += step) {
     grid.appendChild(svg("line", { x1: x(v), x2: x(v), y1: top, y2: H - bottom }));
-    if (tk % te === 0) axis.appendChild(svg("text", { x: x(v), y: H - 6, "text-anchor": "middle" }, String(Math.round(v * 10) / 10)));
+    axis.appendChild(svg("text", { x: x(v), y: H - 6, "text-anchor": "middle" }, String(Math.round(v * 10) / 10)));
   }
   axis.appendChild(svg("text", { x: W - 2, y: H - 6, "text-anchor": "end" }, unit));
   root.appendChild(grid);
@@ -206,15 +206,15 @@ const SHAFT_STATUS_JA = {
 };
 const MEASUREMENT_STATUS_JA = {
   "mass_and_balance_user_measured;length_lie_loft_sw_user_table_not_all_independently_measured":
-    "重さとバランス点は自分の測定。長さ・ライ・ロフト・SW は表の記載で、全部を独立に測ったわけではない",
+    "重さとバランス点はパパの測定。長さ・ライ・ロフト・SW は表の記載で、全部を独立に測ったわけではない",
 };
-const KIND_JA = { "記": "記 = 表の記載値", "測": "測 = 自分の測定値", "算": "算 = 計算 (Q14 = 重さ × (バランス点 − 35.56cm)・SW の元になる量)" };
+const KIND_JA = { "記": "記 = 表の記載値", "測": "測 = パパの測定値", "算": "算 = 計算 (Q14 = 重さ × (バランス点 − 35.56cm)・SW の元になる量)" };
 
 const IN_USE_KEY = "golflab-in-use-v1";
 let IN_USE = {};
-try { const v = JSON.parse(localStorage.getItem(IN_USE_KEY) || "{}"); if (v && typeof v === "object") IN_USE = v; } catch (e) {  }
+try { const v = JSON.parse(localStorage.getItem(IN_USE_KEY) || "{}"); if (v && typeof v === "object") IN_USE = v; } catch (e) {   }
 function saveInUse() {
-  try { localStorage.setItem(IN_USE_KEY, JSON.stringify(IN_USE)); } catch (e) {  }
+  try { localStorage.setItem(IN_USE_KEY, JSON.stringify(IN_USE)); } catch (e) {   }
 }
 
 function specRows(data) {
@@ -274,7 +274,7 @@ function renderSpecs(data) {
         td = el("td", num ? "num" : "", f ? f(c[key]) : (c[key] || "—"));
       }
       if (key === "club" && c.source) td.title = "出所: " + c.source;
-      if (c.catalog && num && key !== "balance_from_butt_cm" && key !== "q14_gcm_derived") td.title = "メーカーの仕様表の値 (自分の測定ではない)";
+      if (c.catalog && num && key !== "balance_from_butt_cm" && key !== "q14_gcm_derived") td.title = "メーカーの仕様表の値 (パパの測定ではない)";
       if (key === "shaft_nominal_mass_g" && c.shaft_mass_status) {
         td.title = "シャフト重量: " + (SHAFT_STATUS_JA[c.shaft_mass_status] || c.shaft_mass_status);
       }
@@ -283,9 +283,9 @@ function renderSpecs(data) {
     table.appendChild(tr);
   }
   const note = el("div", "legend");
-  note.appendChild(el("span", "", "記 = 表の記載値 · 測 = 自分の測定値 · 算 = 計算 (Q14 = 重さ × (バランス点 − 35.56cm)・SW の元になる量) · 番手にマウスを乗せると出所"));
+  note.appendChild(el("span", "", "記 = 表の記載値 · 測 = パパの測定値 · 算 = 計算 (Q14 = 重さ × (バランス点 − 35.56cm)・SW の元になる量) · 番手にマウスを乗せると出所"));
   note.appendChild(el("span", "", "使用中のチェックはクリックで切り替えられる (このブラウザだけに覚える・データは変えない)。" +
-    "使っていないクラブは薄い字。候補の数字はメーカーの仕様表の値で、自分の測定ではない (バランス点と Q14 は —)"));
+    "使っていないクラブは薄い字。調べた候補 (data/candidate_clubs.csv) の数字はメーカーの仕様表の値で、パパの測定ではない (バランス点と Q14 は —)"));
 
   for (const code of new Set(data.clubs.map((c) => c.measurement_status).filter(Boolean))) {
     note.appendChild(el("span", "", (MEASUREMENT_STATUS_JA[code] || "測った/記載: " + code)));
@@ -457,7 +457,7 @@ function renderArmNote(data) {
   const text = !ARM ? "" : ARM.source === "height"
     ? `腕の長さ R = ${fmt(ARM.R_m, 3)} m (両肩の真ん中 → 手首・身長 ${fmt(ARM.H, 0)} cm × Drillis & Contini 1966 の比 (Winter 図 4.1)・丸めない ${fmt(ARM.R_m, 6)} m で計算)。` +
       "この箱の計算は身長からの R に固定 (説明のページのつまみとは別)。"
-    : `腕の長さ R = ${fmt(ARM.R_m, 3)} m (Lampsa 1975 の値 — data.json に身長が無いので借りた・自分の腕ではない)。`;
+    : `腕の長さ R = ${fmt(ARM.R_m, 3)} m (Lampsa 1975 の値 — data.json に身長が無いので借りた・パパの腕ではない)。`;
   document.getElementById("sim-arm").textContent = text;
 }
 
@@ -469,14 +469,15 @@ function simSelfCheck(data) {
   simReady = traj.ok;
   partsReady = traj.ok && parts.ok;
   const shown = (res) => res.failures.slice(0, 3).join(" / ") + (res.failures.length > 3 ? ` ほか ${res.failures.length - 3} 件` : "");
+  const fix = typeof GolfLabGate !== "undefined" ? "" : "python swe3_detailed_design/src/export_view.py を回したか確かめてね ";
   const alarm = [];
   if (!traj.ok) {
     alarm.push("計算がずれてる: 画面の物理 (physics.js) と Python の軌跡が合わないから、ボールの軌跡とシミュレーションの「変える」を止めてるの。" +
-      "データを作り直したか確かめてね (" + shown(traj) + ")");
+      fix + "(" + shown(traj) + ")");
   }
   if (!parts.ok) {
     alarm.push("計算がずれてる: 画面の部品モデル (physics.js) と data.json の clubs[].parts (Python) が合わないから、「変える」の「替える」を止めてるの。" +
-      "データを作り直したか確かめてね (" + shown(parts) + ")");
+      fix + "(" + shown(parts) + ")");
   }
   document.getElementById("alarm").textContent = alarm.join(" ／ ");
   const checkFull = "自己点検: " +
@@ -670,8 +671,8 @@ function renderSimSwap(data, plan) {
   t2.appendChild(el("span", "", "カタログの値の確かさ: "));
   if (match) {
     t2.appendChild(el("strong", "", CONFIDENCE_JA[match.confidence] || match.confidence || "—"));
-    t2.appendChild(el("span", "muted", ` (${match.confidence} · ${match.name} · カタログの参考値・実測とはずれることがある) `));
-    if (/^https:\/\//.test(match.source || "")) {
+    t2.appendChild(el("span", "muted", ` (${match.confidence} · ${match.name} · カタログの参考値・パパの実測とはずれることがある) `));
+    if ((match.source || "").startsWith("https://")) {
       const a = el("a", "", "出所");
       a.setAttribute("href", match.source);
       a.setAttribute("target", "_blank");
@@ -763,7 +764,7 @@ function trajLines(data, plan) {
   }
   for (const t of T.shots.filter((t) => t.club === SIM.club)) {
     const s = shotById[t.shot_id] || {};
-    lines.push({ kind: "mine", name: "自分 " + t.shot_id, model: t, pts: parsePts(t.points_yd), inp: s, meas: s, measBy: "X-SWING の画面",
+    lines.push({ kind: "mine", name: "パパ " + t.shot_id, model: t, pts: parsePts(t.points_yd), inp: s, meas: s, measBy: "X-SWING の画面",
       color: css(flagged(s) ? "--attention-em" : "--accent"), width: 2, dash: flagged(s) ? "6 4" : null,
       flag: flagged(s) ? s.review_flag : "", ray: adoptedIds.has(t.shot_id) ? null : s.launch });
   }
@@ -793,7 +794,7 @@ function drawTrajectory(data, plan) {
     box.appendChild(el("div", "empty", nOut > 0
       ? allOut + (hasTour ? "。ツアーの線は上のチェックで出せるよ" : "")
       : hasTour
-        ? `${clubLabel(SIM.club)} は自分の記録が無いの。ツアーの線は上のチェックで出せるよ`
+        ? `${clubLabel(SIM.club)} はパパの記録が無いの。ツアーの線は上のチェックで出せるよ`
         : `${clubLabel(SIM.club)} は記録もツアーの平均も無いから、軌跡は描けないの (重さを足す時は % だけ出すね)`));
     return;
   }
@@ -887,19 +888,19 @@ function drawTrajectory(data, plan) {
   }
   if (!lines.some((l) => l.kind === "mine")) {
     const r = el("tr");
-    r.appendChild(el("td", "muted", nOut > 0 ? "自分 — 全部 軌跡を描いていない (下の一覧)" : "自分 — この番手はまだ未測定"));
+    r.appendChild(el("td", "muted", nOut > 0 ? "パパ — 全部 軌跡を描いていない (下の一覧)" : "パパ — この番手はまだ未測定"));
     for (let i = 0; i < 6; i++) r.appendChild(el("td", "num muted", "—"));
     tbl.appendChild(r);
   }
   table.appendChild(tbl);
   const m = (data.trajectories || {}).model || {};
   document.getElementById("traj-note").textContent =
-    `線は打出条件 (ボールスピード・打出角・バックスピン) から計算した 2D の参考弾道 (弾道モデル・0.002 秒刻み)。` +
+    `線は打出条件 (ボールスピード・打出角・バックスピン) から計算した 2D の参考弾道 (swe3_detailed_design/src/ballistics.py・0.002 秒刻み)。` +
     `無風・空気密度 ${fmt(m.rho_kgm3, 3)} kg/m³ (海面・15℃)・打った所と同じ高さに落ちる・左右の曲がりは省いてる。` +
     `ツアーの線は平均の打出条件から計算したもので、実測した軌跡の平均ではないの。` +
     `TrackMan の測った値と比べると、計算は落下角がいつも 2〜8° 浅い (落ち方が寝ている) から、落下角や止まりやすさの判断には使わないでね。` +
-    `測定の欄: ツアー = TrackMan 2023 の平均、自分 = X-SWING の画面の値 (落下角は画面に無い)。` +
-    (plan ? "紫の線 = 変えた後 (同じ式を移した physics.js の計算・自分の球ごと)。答え合わせの表の「変えた後」の行は入力も計算で、測定は無い。" : "") +
+    `測定の欄: ツアー = TrackMan 2023 の平均、パパ = X-SWING の画面の値 (落下角は画面に無い)。` +
+    (plan ? "紫の線 = 変えた後 (同じ式を移した physics.js の計算・パパの球ごと)。答え合わせの表の「変えた後」の行は入力も計算で、測定は無い。" : "") +
     `縦は横の約 ${k.toFixed(1)} 倍に拡大して描いてるから、見た目の傾きは本当の角度ではないよ。` +
     `細いまっすぐな線は打ち出しの向き (横から見た打出角)。軌跡がこの線より上にあるのは、バックスピンの揚力が重力より強い間に上へ曲がったから (線とのずれは揚力・重力・空気の抵抗の合わせ技で、揚力だけの分ではない・縦の拡大で大きく見えている)。` +
     `プロの球が「浮き上がって見える」のは、後ろから見ると見上げる角度が先まで上がり続けるからでもある (PGA の Driver の計算だと、打った人の目 (高さ 1.6 m) から見上げる角度は 120 yd 先まで上がり続ける)。`;
@@ -916,7 +917,7 @@ function drawTrajExcluded(data) {
   tag.title = head;
   if (items.length) list.appendChild(el("div", "", head));
   for (const x of items) {
-    list.appendChild(el("div", "", x.kind === "shot" ? `自分 ${x.id}: ${whyJa(x.reason)}`
+    list.appendChild(el("div", "", x.kind === "shot" ? `パパ ${x.id}: ${whyJa(x.reason)}`
       : `${x.id} ${whyJa(x.source_club)}: ${whyJa(x.reason)}`));
   }
   box.hidden = items.length === 0;
@@ -986,7 +987,7 @@ function drawSimOut(data) {
   if (!PLAN.ok) { stop("計算の範囲外: " + whyJa(PLAN.reason)); return; }
   const p = PLAN;
   if (!p.changed) {
-    out.appendChild(el("p", "muted sim-summary", "クラブか振りを「そのまま」以外にすると、自分の球ごとに「変えた後」(紫の線) を重ねるよ"));
+    out.appendChild(el("p", "muted sim-summary", "クラブか振りを「そのまま」以外にすると、パパの球ごとに「変えた後」(紫の線) を重ねるよ"));
     return;
   }
   if (simAppBlock()) { stop(simAppBlock()); return; }
@@ -1029,7 +1030,7 @@ function drawSimOut(data) {
     return ds.every(Number.isFinite) ? `+${d}° で ${signed(meanOf(ds), 1)} yd` : null;
   }).filter(Boolean);
   const extra = {
-    club_speed: [align ? `${p.target.tour} の平均 (TrackMan の外部の平均・自分の記録ではない)`
+    club_speed: [align ? `${p.target.tour} の平均 (TrackMan の外部の平均・パパの記録ではない)`
       : p.change === "weight" ? `重さの比: グリップ端 ${signed(ratioPct(w.hs_ratio), 2)}% / 肩まわり ${signed(ratioPct(w.hs_ratio_j), 2)}% (n 0.25)` + (p.k !== null ? ` × ${fmt(p.k, 2)}` : "")
       : p.change === "swap" ? `替えた比: グリップ端 ${signed(ratioPct(hs.ratio_i), 2)}% · 肩まわり ${signed(ratioPct(hs.ratio_j), 2)}% (n 0.25)` + (p.k !== null ? ` × ${fmt(p.k, 2)}` : "")
       : "",
@@ -1063,7 +1064,7 @@ function drawSimOut(data) {
         "部品モデルの推定 (本当の MOI ではない)・腕は Lampsa 1975 の仮定"]);
     simTile(tiles, "バランス点 (SW から・cm)", `${fmt(club.balance_from_butt_cm, 1)} → ${fmt(bal.balance_cm, 1)}`,
       [`土台 ${clubLabel(p.club)} ${bal.sw_base} (測定) → 候補 ${bal.sw_cand} (SW の差 ${signed(dP, 1)} pt × ${fmt(GolfPhysics.SW_POINT_GCM, 0)} g·cm)`,
-        "土台のずれを持ち越した推定 (記載と実測の差が候補にも共通するとは限らない)"]);
+        "土台のずれを持ち越した推定 (記載と実測の差が候補にも共通するかは確かめていない)"]);
   }
   out.appendChild(tiles);
   const fig = el("div", "sim-fig");
@@ -1104,9 +1105,9 @@ function simDeltaPlot(rows, width, club) {
   const x = (v) => left + ((v - lo) / (hi - lo)) * (W - left - right);
   const root = svg("svg", { viewBox: `0 0 ${W} ${H}`, role: "img" });
   const grid = svg("g", { class: "grid" }), axis = svg("g", { class: "axis" });
-  for (let v = lo, tk = 0, te = Math.max(1, Math.ceil(30 / Math.max(1e-9, (W - left - right) * step / ((hi - lo) || 1)))); v <= hi + 1e-9; v += step, tk++) {
+  for (let v = lo; v <= hi + 1e-9; v += step) {
     grid.appendChild(svg("line", { x1: x(v), x2: x(v), y1: top, y2: top + rowH }));
-    if (tk % te === 0) axis.appendChild(svg("text", { x: x(v), y: H - 6, "text-anchor": "middle" }, signed(v, stepDigits(step))));
+    axis.appendChild(svg("text", { x: x(v), y: H - 6, "text-anchor": "middle" }, signed(v, stepDigits(step))));
   }
   axis.appendChild(svg("text", { x: W - 2, y: H - 6, "text-anchor": "end" }, "yd"));
   root.appendChild(grid);
@@ -1287,7 +1288,7 @@ function render(data) {
     }
     const short = [...new Set((data.tour || []).map((x) => (String(x.source || "").split(" ")[0] + (x.year ? " " + x.year : "")).trim()))].join("・");
     const srcTag = el("span", "key", "外部の平均 " + short);
-    srcTag.title = "外部の平均: " + src + " (自分の記録ではない)";
+    srcTag.title = "外部の平均: " + src + " (パパの記録ではない)";
     lg.appendChild(srcTag);
     lg.style.gap = "14px";
   }
@@ -1316,7 +1317,7 @@ function render(data) {
   trend.textContent = dated ? `📅 ${dated} 球` : "📅 日付なし — まだ描けない";
   trend.title = dated
     ? `日付つきの記録 ${dated} 球 (推移のグラフは次の版で)`
-    : `日付つきの記録はまだ無いの (日付の無い球 ${data.shots.length - dated} 球)。日付つきの記録が増えたら、ここに推移を出すね。`;
+    : `今の ${data.shots.length} 球は撮った日が分からないの。これから貼ってもらう記録には日付を入れるから、増えたらここに推移を出すね。`;
   renderSpecs(data);
 }
 
@@ -1328,9 +1329,42 @@ function renderCellsTag(data) {
   a.classList.toggle("warn", off.length > 0);
 }
 
-loadData()
+const ON_GATE = typeof GolfLabGate !== "undefined";
+let gateDrawn = false;
+let gateReloading = false;
+
+function draw(data, info) {
+  if (gateReloading) return;
+  if (gateDrawn) {
+    if (info && info.redraw) {
+      gateReloading = true;
+      location.reload();
+    }
+    return;
+  }
+  gateDrawn = true;
+  try {
+    render(data);
+  } catch (e) {
+    document.getElementById("error").textContent = "記録を描けないの (" + e.message + ")";
+  }
+}
+
+function discard() {
+  if (!gateDrawn || gateReloading) return;
+  gateReloading = true;
+  document.body.hidden = true;
+  location.reload();
+}
+
+if (ON_GATE) {
+  GolfLabGate.listen({ draw, discard });
+} else {
+fetch("data.json", { cache: "no-store" })
+  .then((r) => { if (!r.ok) throw new Error("http " + r.status); return r.json(); })
   .then(render)
   .catch((e) => {
     document.getElementById("error").textContent =
-      "データが読めないの (" + e.message + ")。通信を確かめて開き直してね";
+      "data.json が読めないの (" + e.message + ")。Live Preview で開いているか、`python swe3_detailed_design/src/export_view.py` を回したか確かめてね";
   });
+}

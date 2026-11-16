@@ -3,7 +3,9 @@
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 const HAS_PHYSICS = typeof GolfPhysics !== "undefined";
-const NO_PHYSICS_ERROR = "physics.js が読めないの。通信を確かめて開き直してね";
+const ON_GATE = typeof GolfLabGate !== "undefined";
+const NO_PHYSICS_ERROR = ON_GATE ? "physics.js が読めないの"
+  : "physics.js が読めないの。`swe3_detailed_design/view/` に `physics.js` があるか、Live Preview で開いているか確かめてね";
 
 function el(tag, cls, text) {
   const n = document.createElement(tag);
@@ -93,7 +95,7 @@ function renderCoefChart(cfg, data) {
   box.appendChild(root);
   const sps = marks.filter((m) => m[0] === "mine").map((m) => m[1]);
   document.getElementById("coef-note").textContent =
-    `下の印 = 打ち出しの時の Sp (○ 自分の球・◆ PGA 平均・▲ LPGA 平均・マウスで名前)。自分の球は Sp ${fmt(Math.min(...sps), 3)}〜${fmt(Math.max(...sps), 3)}。` +
+    `下の印 = 打ち出しの時の Sp (○ パパの球・◆ PGA 平均・▲ LPGA 平均・マウスで名前)。パパの球は Sp ${fmt(Math.min(...sps), 3)}〜${fmt(Math.max(...sps), 3)}。` +
     `飛んでいる間に速さが落ちる (Sp が大きくなる) ので、球は右へ動いていく。灰色 = 上限より右 (計算では上限で頭打ち)。` +
     `Sp = 0 でも Cl が ${cfg.cl_poly[0]} 残る — 回転しない球には使えない近似。`;
 }
@@ -116,7 +118,7 @@ function renderConsts(cfg) {
   }
   const box = document.getElementById("consts");
   box.appendChild(t);
-  box.appendChild(el("div", "muted", "仮定: " + (cfg.assumptions || []).join(" · ") + ""));
+  box.appendChild(el("div", "muted", "仮定: " + (cfg.assumptions || []).join(" · ") + " · 状態: " + (cfg.status || "")));
 }
 
 function renderCheck(cfg, data) {
@@ -195,7 +197,7 @@ function renderTourCheck(data, cfg, box) {
   const assumed = ["Driver", "3-wood", "5-wood"].filter((k) => clubs[k])
     .map((k) => `${name(k)} ${fmt(clubs[k].loft_deg, 0)}° ${fmt(clubs[k].head_mass_g, 0)} g`).join("・");
   info.appendChild(el("p", "muted", `ツアーのクラブのロフトとヘッド質量は${spec.source}: ${assumed}。` +
-    "HS は TrackMan の本物の値を使った (HS を見積もる式とは別)。ツアー平均は答え合わせ専用で、自分の計算の土台には使わない。"));
+    "HS は TrackMan の本物の値を使った (HS の式の検証ではない)。ツアー平均は答え合わせ専用で、パパの計算の土台には使わない。"));
   const ok = res.rows.filter((r) => r.ok);
   if (!ok.length) return;
   const per = (tc) => ok.filter((r) => r.tour_club === tc);
@@ -214,7 +216,7 @@ function renderTourCheck(data, cfg, box) {
 const N_HUMAN = 0.26;
 const flaggedShot = (s) => s.review_flag && s.review_flag !== "review_not_required";
 
-const WEDGES = { includes: (c) => c === "PW" || /^\d+deg$/.test(String(c)) };
+const WEDGES = ["PW", "50deg", "56deg"];
 const N_FIX = 0.25;
 let ARM_M = HAS_PHYSICS ? GolfPhysics.ARM_DEFAULT_M : NaN, EVAL_WEDGE = false, CM_PER_IN = NaN;
 const cm = (L) => L * CM_PER_IN;
@@ -309,7 +311,7 @@ function renderSwing(cfg, data) {
   const left = 44, right = 16, top = 14, bottom = 34, pw = W - left - right, ph = H - top - bottom;
   const xMin = 35, xMax = 46, yMin = 30, yMax = 46;
   const x = (v) => left + ((v - xMin) / (xMax - xMin)) * pw, y = (v) => top + ph - ((v - yMin) / (yMax - yMin)) * ph;
-  const root = svg("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "クラブの長さと HS: 自分の記録と式の線" });
+  const root = svg("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "クラブの長さと HS: パパの記録と式の線" });
   const grid = svg("g", { class: "grid" });
   for (let v = xMin; v <= xMax + 1e-9; v += 1) {
     grid.appendChild(svg("line", { x1: x(v), x2: x(v), y1: top, y2: top + ph }));
@@ -339,7 +341,7 @@ function renderSwing(cfg, data) {
       for (const [a, b, c] of ps) {
         const dot = svg("circle", { cx: x(a), cy: y(b), r: c.rec ? 3 : 4, fill: c.rec ? css(m.color) : css("--canvas"), stroke: css(m.color), "stroke-width": 1.5 });
         const t = svg("title");
-        t.textContent = `${m.name} · ${c.club.replace("deg", "°")} · ${fmt(b, 1)} m/s` + (c.rec ? "" : " (自分の記録は無い・仕様だけで計算)");
+        t.textContent = `${m.name} · ${c.club.replace("deg", "°")} · ${fmt(b, 1)} m/s` + (c.rec ? "" : " (パパの記録は無い・仕様だけで計算)");
         dot.appendChild(t);
         root.appendChild(dot);
       }
@@ -392,21 +394,21 @@ function renderSwing(cfg, data) {
   const sd5 = b5.length > 1 ? Math.sqrt(b5.reduce((a, v) => a + (v - m5) ** 2, 0) / (b5.length - 1)) : NaN;
   const edge = (b) => b.arm <= 0.305 || b.arm >= 1.195;
   document.getElementById("swing-note").textContent =
-    `● 自分の番手ごとの HS の平均 (X-SWING の画面の値) · ○ HS のますを外した球を除いた平均 (違う番手だけ・表 → で選ぶ) · 白抜きの点 = 記録の無い番手 (仕様だけで計算)。` +
+    `● パパの番手ごとの HS の平均 (X-SWING の画面の値) · ○ HS のますを外した球を除いた平均 (違う番手だけ・表 → で選ぶ) · 白抜きの点 = 記録の無い番手 (仕様だけで計算)。` +
     `どの式も 5I (${base.nOk} 球・${fmt(H0, 2)} m/s・平均の標準誤差 ${fmt(sd5 / Math.sqrt(b5.length), 2)} m/s) に合わせた「同じように振れたら」の計算。` +
     `「腕 + クラブ」= 腕とクラブが一直線で同じ角速度を持つと仮定した比較式 (ヘッドの速さ = 角速度 × (肩から手首 + クラブの長さ))。` +
     `「× グリップ端の MOI (中心)」「× 肩まわりの MOI」は、それにクラブの MOI の補正 (経験) (X_5I / X)^${N_FIX} を掛けたもの — 画面の「ボールの軌跡とシミュレーション」(重さを足す・クラブを替える) と同じ式で、` +
     `X = グリップ端まわりのクラブの MOI (部品モデルの I_est) か、肩まわりの全体の MOI J = 腕 + I + m (R² + 2 R b) (腕の質量 ${GolfPhysics.ARM_MASS_KG} kg・慣性は Lampsa 1975 の仮定・b = 部品モデルの重心)。` +
-    `指数 ${N_FIX} はクラブのグリップ端まわりの MOI に当てはめた値 (棒を振る実験) で、肩まわりの J に使うのは転用。二重振り子から導いた理論式ではない (角速度の比やリリースは解いていない)。` +
+    `指数 ${N_FIX} はクラブのグリップ端まわりの MOI に当てはめた値 (棒を振る実験) で、肩まわりの J に使うのは転用 (未検証)。二重振り子から導いた理論式ではない (角速度の比やリリースは解いていない)。` +
     `グリップ端を中心に回すと置く式 (長さに比例・式 M・長さのべき乗) は、腕の分の半径を無視するので理論式として使わない。`;
   document.getElementById("swing-acc-note").textContent =
     `答え合わせに使った番手: ${used} (HS のますを外した球を除いた平均・基準の 5I は除く${EVAL_WEDGE ? "・ウェッジも入れた" : "・ウェッジは外した"})。` +
-    `球数の少ない番手があり、5I の平均にも標準誤差 ${fmt(sd5 / Math.sqrt(b5.length), 2)} m/s があるので、今の記録では順位の不確かさを十分に評価できない (行にマウスで番手ごとの差)。` +
-    `記録が少ないうちは、グリップ端と肩まわりのどちらが良いかは決まらない (1 球の差は合否の境界ではない)。` +
+    `番手ごとの平均は球の数が少ないと揺れ、5I の平均にも標準誤差 ${fmt(sd5 / Math.sqrt(b5.length), 2)} m/s があるので、順位の不確かさは十分に評価できない (行にマウスで番手ごとの差)。` +
+    `この答え合わせではグリップ端と肩まわりのどちらが良いかを決めない (1 球の差は合否の境界ではない)。` +
     `当てはめた「腕の長さ」(腕 + クラブ ${fmt(bArm.arm, 2)} m・RMSE ${fmt(bArm.rmse, 2)} / × 肩まわり ${fmt(bArmM.arm, 2)} m・RMSE ${fmt(bArmM.rmse, 2)} / ` +
     `× グリップ端 ${fmt(bArmG.arm, 2)} m・RMSE ${fmt(bArmG.rmse, 2)}) は、` +
     `腕とクラブの角速度の比も吸い込んだ有効なパラメータで、人の腕の長さとは読めない (同じ記録で合わせた値${edge(bArm) || edge(bArmM) || edge(bArmG) ? "・探し方の端の値を含む" : ""})。` +
-    `どの式が一番かを決めるには、条件をそろえた記録が要る (下の「確かさを上げるには」)。`;
+    `どの式が一番かを決めるには、条件をそろえた記録が要る (下の「次に測るもの」)。`;
 }
 
 function bindSwingControls(cfg, data) {
@@ -418,7 +420,7 @@ function bindSwingControls(cfg, data) {
   if (body.source === "height") {
     src.title =
       `(最初の値 = 身長 ${body.H} cm から ${armLabel(body.R_m)} m: 肩→手首 ${body.arm.toFixed(1)} cm と両肩の真ん中→肩 ${body.half.toFixed(1)} cm の斜めの距離` +
-      (body.hubWrist ? ` · 自分で測った手首の高さ ${data.profile.wrist_to_floor_cm} cm (身長の比なら ${body.wristRatio.toFixed(1)} cm) からだと ${armLabel(body.hubWrist)} m` : "") +
+      (body.hubWrist ? ` · パパが測った手首の高さ ${data.profile.wrist_to_floor_cm} cm (身長の比なら ${body.wristRatio.toFixed(1)} cm) からだと ${armLabel(body.hubWrist)} m` : "") +
       ` · Lampsa 0.615 · White 0.67 · 画面の計算は丸めない ${body.R_m.toFixed(6)} m)`;
   } else {
     src.title = `(最初の値 = Lampsa 1975 の ${armLabel(body.R_m)} m — data.json に身長が無い · White 0.67)`;
@@ -501,14 +503,14 @@ function renderSwingMass(cfg, data) {
     `5I を 0 にした時の、MOI の補正分 = (5I の MOI ÷ その番手の MOI)^${N_FIX} − 1 を、グリップ端の MOI (中心) と肩まわりの MOI の 2 本で。` +
     `長さによる慣性の変化も含む (長い番手ほどグリップ端の MOI は大きい)。腕 ${armLabel(ARM_M)} m (つまみと同じ)・腕の質量と慣性は Lampsa 1975 の仮定。` +
     `肩まわりでは、クラブの総重量そのものが効く (クラブの質量 × 肩からの距離² の項): 一番回しやすいのは ${name(hiJ)} (${fmt(hiJ.mass, 0)} g・${signed(hiJ.pct.J, 1)}%)、` +
-    `一番回しにくいのは ${name(loJ)} (${fmt(loJ.mass, 0)} g・${signed(loJ.pct.J, 1)}%)。総重量が ${fmt(Math.max(...mass) - Math.min(...mass), 0)} g 違っても 肩まわりの差が ${fmt(hiJ.pct.J - loJ.pct.J, 1)}% の幅に収まるのは、` +
+    `一番回しにくいのは ${name(loJ)} (${fmt(loJ.mass, 0)} g・${signed(loJ.pct.J, 1)}%)。総重量が ${fmt(Math.max(...mass) - Math.min(...mass), 0)} g 違っても ±1% くらいに収まるのは、` +
     `腕の慣性 (${fmt(GolfPhysics.ARM_I_HUB, 2)} kg·m²) が大きいから。グリップ端では ${name(hiI)} が ${signed(hiI.pct.I, 1)}%・${name(loI)} が ${signed(loI.pct.I, 1)}%。` +
     (drv && drv.pct.I < 0 && drv.pct.J > 0 ? `番手どうしでは 2 本の向きが違って見えるが、どちらも定義どおり (Driver は 5I より軽い (${fmt(drv.mass, 0)} g) が長いのでグリップ端の MOI は大きい → グリップ端では回しにくい側・肩まわりでは回しやすい側)。` : "") +
     `どこに付けるかで違う: 5I に 10 g を足すと肩まわりの MOI はヘッドで ${fmt(dHead, 2)}%・グリップ端から 18 cm で ${fmt(dGrip, 2)}% 増える。` +
     `MacKenzie 2015 の 1 条件 (同じ長さで Driver のヘッド 174 → 200 g): 実験の HS −2.49% に対して、グリップ端の MOI (2539 → 2867 kg·cm²) で ${signed((mk.grip - 1) * 100, 2)}%・` +
-    `肩まわりの MOI で ${signed((mk.hub - 1) * 100, 2)}% (肩まわりは、クラブの質量と重心が論文に無いので自分の Driver を借りた)。` +
+    `肩まわりの MOI で ${signed((mk.hub - 1) * 100, 2)}% (肩まわりは、クラブの質量と重心が論文に無いのでパパの Driver を借りた)。` +
     `実験の値が 2 つの式の間に入るのは 1 条件での一致で、式が正しい保証ではない。` +
-    `指数 ${N_FIX} はグリップ端の MOI に当てはめた値で、肩まわりに使うのは転用。クラブの MOI は部品モデルの推定 (本当の MOI ではない)・シャフト重量が未確定の番手は仮定の値。`;
+    `指数 ${N_FIX} はグリップ端の MOI に当てはめた値で、肩まわりに使うのは転用。クラブの MOI は部品モデルの推定 (本当の MOI ではない)・4U はシャフト 55 g の仮定。`;
 }
 
 function renderMopt(cfg, data) {
@@ -528,7 +530,7 @@ function renderMopt(cfg, data) {
   const heads = data.clubs.map((c) => [c.club.replace("deg", "°"), ((c.parts || [])[0] || {}).head_mass_g]).filter(([, v]) => Number.isFinite(v));
   document.getElementById("mopt-note").textContent =
     `ボール m = ${fmt(m, 2)} g (data.json の係数)。最適の近くは平ら: 136〜283 g でボールスピードの低下は 1% 以内 (Daish)。` +
-    `自分のヘッドの見積もり (総重量 − シャフト − グリップ 50 g): ` + heads.map(([k, v]) => `${k} ${fmt(v, 0)} g`).join(" · ") + "。" +
+    `パパのヘッドの見積もり (総重量 − シャフト − グリップ 50 g): ` + heads.map(([k, v]) => `${k} ${fmt(v, 0)} g`).join(" · ") + "。" +
     `cos θ は外に掛かる係数なので、フェースに垂直な成分 v_n の最適はロフトに依らない (e が質量で変わらない時)。スピンや合わせたボールスピードの最適までは、この表のままとは言えない。` +
     `この M_opt は反発係数 e が質量で変わらない時だけ。White 2006 の「197.5 g」はエネルギーの伝わり方の効率の最適で、飛距離の最適ではない。`;
 }
@@ -546,32 +548,67 @@ function renderCellsTag(data) {
   tag.title = hs.join(", ") + " — 答え合わせと基準の 5I から除く (表 → で切り替え)";
 }
 
-loadData()
-  .then((data) => {
-    renderCellsTag(data);
-    window.addEventListener("storage", (e) => { if (e.key === CELL_KEY) location.reload(); });
-    window.addEventListener("pageshow", (e) => { if (e.persisted) location.reload(); });
-    const model = (data.trajectories || {}).model || {};
-    const cfg = model.config;
-    if (!cfg) throw new Error("data.json に弾道の係数 (trajectories.model.config) が無い");
-    renderEquations(cfg, model);
-    renderCoefChart(cfg, data);
-    renderConsts(cfg);
-    if (HAS_PHYSICS) {
-      renderCheck(cfg, data);
-      renderTourCheck(data, cfg, document.getElementById("tour-check"));
-      bindSwingControls(cfg, data);
-    } else {
-      document.getElementById("error").textContent = NO_PHYSICS_ERROR;
-      for (const id of ["check", "tour-check", "swing-chart", "swing-acc", "swing-mass"]) {
-        document.getElementById(id).textContent = "physics.js が読めないので出していない";
-      }
-      for (const id of ["arm-len", "eval-wedge"]) document.getElementById(id).disabled = true;
+function drawPage(data) {
+  renderCellsTag(data);
+  window.addEventListener("storage", (e) => { if (e.key === CELL_KEY) location.reload(); });
+  window.addEventListener("pageshow", (e) => { if (e.persisted) location.reload(); });
+  const model = (data.trajectories || {}).model || {};
+  const cfg = model.config;
+  if (!cfg) throw new Error("data.json に弾道の係数 (trajectories.model.config) が無い");
+  renderEquations(cfg, model);
+  renderCoefChart(cfg, data);
+  renderConsts(cfg);
+  if (HAS_PHYSICS) {
+    renderCheck(cfg, data);
+    renderTourCheck(data, cfg, document.getElementById("tour-check"));
+    bindSwingControls(cfg, data);
+  } else {
+    document.getElementById("error").textContent = NO_PHYSICS_ERROR;
+    for (const id of ["check", "tour-check", "swing-chart", "swing-acc", "swing-mass"]) {
+      document.getElementById(id).textContent = "physics.js が読めないので出していない";
     }
-    renderMopt(cfg, data);
-  })
+    for (const id of ["arm-len", "eval-wedge"]) document.getElementById(id).disabled = true;
+  }
+  renderMopt(cfg, data);
+}
+
+let gateDrawn = false;
+let gateReloading = false;
+
+function draw(data, info) {
+  if (gateReloading) return;
+  if (gateDrawn) {
+    if (info && info.redraw) {
+      gateReloading = true;
+      location.reload();
+    }
+    return;
+  }
+  gateDrawn = true;
+  try {
+    drawPage(data);
+  } catch (e) {
+    document.getElementById("error").textContent =
+      "記録を描けないの (" + e.message + ")" + (HAS_PHYSICS ? "" : " ／ " + NO_PHYSICS_ERROR);
+  }
+}
+
+function discard() {
+  if (!gateDrawn || gateReloading) return;
+  gateReloading = true;
+  document.body.hidden = true;
+  location.reload();
+}
+
+if (ON_GATE) {
+  GolfLabGate.listen({ draw, discard });
+} else {
+fetch("data.json", { cache: "no-store" })
+  .then((r) => { if (!r.ok) throw new Error("http " + r.status); return r.json(); })
+  .then(drawPage)
   .catch((e) => {
     document.getElementById("error").textContent =
-      "データが読めないの (" + e.message + ")。通信を確かめて開き直してね" +
+      "data.json が読めないの (" + e.message + ")。Live Preview で開いているか、`python swe3_detailed_design/src/export_view.py` を回したか確かめてね" +
       (HAS_PHYSICS ? "" : " ／ " + NO_PHYSICS_ERROR);
   });
+}

@@ -2,6 +2,7 @@
  "name": "GolfLab",
  "short_name": "GolfLab",
  "lang": "ja",
+ "id": "./",
  "start_url": "./",
  "scope": "./",
  "display": "standalone",
@@ -9,17 +10,17 @@
  "theme_color": "#f6f8fa",
  "icons": [
   {
-   "src": "icon-gl-192.png",
+   "src": "icon-192.png",
    "sizes": "192x192",
    "type": "image/png"
   },
   {
-   "src": "icon-gl-512.png",
+   "src": "icon-512.png",
    "sizes": "512x512",
    "type": "image/png"
   },
   {
-   "src": "icon-gl-512.png",
+   "src": "icon-512.png",
    "sizes": "512x512",
    "type": "image/png",
    "purpose": "maskable"

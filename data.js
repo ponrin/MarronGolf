@@ -1,6 +1,6 @@
 "use strict";
 
-const LABELS = new Proxy({}, { get: (o, k) => (typeof k === "string" && /^\d+deg$/.test(k) ? k.replace("deg", "°") : undefined) });
+const LABELS = { "50deg": "50°", "56deg": "56°", "48deg": "48°", "52deg": "52°" };
 const clubLabel = (c) => LABELS[c] || c;
 const fmtV = (v, d) => (v === null || v === undefined || !Number.isFinite(Number(v)) ? "—" : Number(v).toFixed(d));
 function el(tag, cls, text) {
@@ -111,15 +111,50 @@ function changed(data) {
   tag.title = off.map(([id, f]) => `${id} ${cellLabel(f)}`).join(", ");
 }
 
-loadData()
-  .then((data) => {
-    render(data);
-    changed(data);
-    document.getElementById("off-cand").addEventListener("click", () => { offCandidates(data); changed(data); });
-    document.getElementById("on-all").addEventListener("click", () => { clearCells(); changed(data); });
-    window.addEventListener("storage", (e) => { if (e.key === CELL_KEY) { cellsReload(); changed(data); } });
-    window.addEventListener("pageshow", (e) => { if (e.persisted) { cellsReload(); changed(data); } });
-  })
+function drawPage(data) {
+  render(data);
+  changed(data);
+  document.getElementById("off-cand").addEventListener("click", () => { offCandidates(data); changed(data); });
+  document.getElementById("on-all").addEventListener("click", () => { clearCells(); changed(data); });
+  window.addEventListener("storage", (e) => { if (e.key === CELL_KEY) { cellsReload(); changed(data); } });
+  window.addEventListener("pageshow", (e) => { if (e.persisted) { cellsReload(); changed(data); } });
+}
+
+const ON_GATE = typeof GolfLabGate !== "undefined";
+let gateDrawn = false;
+let gateReloading = false;
+
+function draw(data, info) {
+  if (gateReloading) return;
+  if (gateDrawn) {
+    if (info && info.redraw) {
+      gateReloading = true;
+      location.reload();
+    }
+    return;
+  }
+  gateDrawn = true;
+  try {
+    drawPage(data);
+  } catch (e) {
+    document.getElementById("error").textContent = "記録を描けないの (" + e.message + ")";
+  }
+}
+
+function discard() {
+  if (!gateDrawn || gateReloading) return;
+  gateReloading = true;
+  document.body.hidden = true;
+  location.reload();
+}
+
+if (ON_GATE) {
+  GolfLabGate.listen({ draw, discard });
+} else {
+fetch("data.json", { cache: "no-store" })
+  .then((r) => { if (!r.ok) throw new Error("http " + r.status); return r.json(); })
+  .then(drawPage)
   .catch((e) => {
-    document.getElementById("error").textContent = "データが読めないの (" + e.message + ")。通信を確かめて開き直してね";
+    document.getElementById("error").textContent = "data.json が読めないの (" + e.message + ")。Live Preview で開いているか確かめてね";
   });
+}

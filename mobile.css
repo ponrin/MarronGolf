@@ -1,31 +1,24 @@
-html.gate-open, html.gate-open body { overflow: hidden; }
-#gate { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center;
-        padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
-                 max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-        background: var(--canvas); color: var(--fg); }
-.gate-card { width: 100%; max-width: 360px; display: grid; gap: 12px; }
-.gate-card h1 { margin: 0; font-size: 28px; font-weight: 700; }
-.gate-lead { margin: 0; font-size: 15px; color: var(--fg-muted); line-height: 1.6; }
-.gate-card label { font-size: 15px; font-weight: 600; }
-.gate-card input { font: inherit; font-size: 18px; min-height: 52px; padding: 10px 14px; border: 1px solid var(--border);
-                   border-radius: 10px; background: var(--canvas-subtle); color: var(--fg); width: 100%; }
-.gate-btn { font: inherit; font-size: 18px; font-weight: 700; min-height: 52px; border: 0; border-radius: 10px;
-            background: var(--accent); color: #ffffff; cursor: pointer; }
-.gate-btn:disabled { opacity: 0.6; }
-.gate-msg { margin: 0; min-height: 1.6em; font-size: 15px; color: var(--fg-muted); }
-.gate-msg.err { color: var(--danger); font-weight: 600; }
-.gate-forget { font: inherit; font-size: 12px; padding: 2px 10px; border: 1px solid var(--border); border-radius: 2em;
-               background: transparent; color: var(--fg-muted); cursor: pointer; }
-#tap-tip { position: fixed; left: 8px; right: 8px; bottom: max(8px, env(safe-area-inset-bottom)); z-index: 50;
-           padding: 10px 14px; border-radius: 10px; background: var(--fg); color: var(--canvas); font-size: 14px;
-           line-height: 1.5; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25); }
 
-@media (hover: none) {
-  [title], svg :has(> title) { cursor: pointer; }
-}
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+input, select, textarea { font-size: 16px !important; }
+
+#golflab-gate { width: 100%; max-width: 360px; display: grid; gap: 12px; margin: 0 0 10px; }
+#golflab-gate p { margin: 0; font-size: 15px; color: var(--fg-muted); line-height: 1.6; }
+#golflab-gate label { font-size: 15px; font-weight: 600; }
+#golflab-pass { font: inherit; min-height: 52px; padding: 10px 14px; border: 1px solid var(--border);
+                border-radius: 10px; background: var(--canvas-subtle); color: var(--fg); width: 100%; }
+#golflab-open { font: inherit; font-size: 18px; font-weight: 700; min-height: 52px; border: 0; border-radius: 10px;
+                background: var(--accent); color: var(--canvas); cursor: pointer; }
+#golflab-open:disabled, #golflab-pass:disabled, #golflab-erase:disabled { opacity: 0.6; }
+#golflab-msg { margin: 0; min-height: 1.6em; font-size: 15px; color: var(--fg-muted); }
+#golflab-msg.golflab-error { color: var(--danger); }
+#golflab-erase { font: inherit; font-size: 12px; padding: 2px 10px; border: 1px solid var(--border); border-radius: 2em;
+                 background: transparent; color: var(--fg-muted); cursor: pointer; }
+
+html.golflab-cover body { visibility: hidden; }
+html.golflab-cover #golflab-gate, html.golflab-cover #golflab-erase { visibility: visible; }
 
 @media (max-width: 640px) {
-  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   body { font-size: 14px; overflow-x: hidden; }
   .muted { font-size: 13px; }
   .top { position: static; gap: 6px 8px;
@@ -44,21 +37,19 @@ html.gate-open, html.gate-open body { overflow: hidden; }
   .legend { font-size: 12px; gap: 6px 12px; }
   .info-body { font-size: 13px; }
 
-  button.info, .gate-forget, a.Label, .Label.cells-link, .Box-link, .top .back {
-    min-height: 44px; min-width: 44px; height: auto; display: inline-flex; align-items: center; justify-content: center;
+  button.info, #golflab-erase, a.Label, .Label.cells-link, .Box-link, .top .back {
+    height: auto; display: inline-flex; align-items: center; justify-content: center;
     padding: 0 12px; font-size: 14px; line-height: 1.2; }
   .Label { font-size: 13px; line-height: 24px; }
   .seg { gap: 6px; }
-  .seg button { min-height: 44px; min-width: 52px; padding: 0 14px; font-size: 15px; }
+  .seg button { padding: 0 14px; font-size: 15px; }
   .check { min-height: 44px; font-size: 14px; }
   .check input[type="checkbox"], .check input[type="radio"] { width: 22px; height: 22px; }
-  details > summary { min-height: 44px; display: flex; align-items: center; font-size: 14px !important; }
+  details > summary { display: flex; align-items: center; font-size: 14px !important; }
   .control-row { gap: 0 14px; font-size: 14px; }
   .control-title { width: auto; min-width: 44px; }
-  .btn { min-height: 44px; padding: 0 14px !important; font-size: 14px !important; }
+  .btn { padding: 0 14px !important; font-size: 14px !important; }
 
-  input, select, textarea { font-size: 16px !important; }
-  input[type="number"], input[type="text"], select { min-height: 44px; }
   .check input.sim-x { width: 68px; }
   .sim-field input { width: 92px; }
   .sim-field input.sim-text { width: 72px; }
@@ -69,19 +60,26 @@ html.gate-open, html.gate-open body { overflow: hidden; }
   .sim-stat .v { font-size: 20px; }
   .sim-stat .s { font-size: 12px; }
 
-  .scroll, #traj-table, #specs, #table { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+  .scroll, #traj-table, #specs, #table, table.t, .eq { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+  table.t { display: block; }
   table.specs, table.cells { font-size: 13px; }
   table.specs.sim-table { min-width: 0; }
   table.cells td.v button { min-height: 40px; min-width: 56px; font-size: 14px; }
 
-  .crumb a, .refs a, .sim-tag a { display: inline-flex; align-items: center; min-height: 44px; }
+  .crumb a, .refs a, .sim-tag a { display: inline-flex; align-items: center; }
+  .refs a, .sim-tag a { min-height: 44px; }
   .refs a { padding: 0 6px; }
 
   .two { grid-template-columns: minmax(0, 1fr) !important; }
   .two > * { min-width: 0; }
-  .eq { max-width: 100%; }
-  table.t { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
   .ctl input[type=range] { width: 100%; max-width: 320px; min-height: 44px; }
   .fig-one { max-width: 100%; }
   code { word-break: break-all; }
+}
+
+@media (pointer: coarse) {
+  button.info, .seg button, .btn, a.Label, .Box-link, .top .back, .crumb a, summary,
+  input[type="number"], input[type="text"], input[type="password"], select, #golflab-erase, #golflab-open {
+    min-height: 44px; min-width: 44px; }
+  .seg button { min-width: 52px; }
 }

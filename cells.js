@@ -35,7 +35,7 @@ function cellsReload() {
 function cellsSave() {
   const out = {};
   for (const [id, set] of CELLS) if (set.size) out[id] = [...set];
-  try { localStorage.setItem(CELL_KEY, JSON.stringify(out)); } catch (e) {  }
+  try { localStorage.setItem(CELL_KEY, JSON.stringify(out)); } catch (e) {   }
 }
 
 function candField(flag) {
