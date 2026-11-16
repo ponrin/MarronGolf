@@ -1305,12 +1305,17 @@ function render(data) {
   let timer = null;
   window.addEventListener("resize", () => { clearTimeout(timer); timer = setTimeout(() => drawCharts(data), 150); });
   renderCellsTag(data);
-  const cellsChanged = () => {
-    cellsReload();
+  const cellsRedraw = () => {
     renderCellsTag(data);
     updateSim(data);
     drawCharts(data);
   };
+  const cellsChanged = () => {
+    cellsReload();
+    if (typeof ShotsTable !== "undefined") ShotsTable.repaint();
+    cellsRedraw();
+  };
+  if (typeof ShotsTable !== "undefined") ShotsTable.mount(data, cellsRedraw);
   window.addEventListener("storage", (e) => { if (e.key === CELL_KEY) cellsChanged(); });
   window.addEventListener("pageshow", (e) => { if (e.persisted) cellsChanged(); });
   const trend = document.getElementById("trend");
@@ -1324,7 +1329,7 @@ function render(data) {
 function renderCellsTag(data) {
   const a = document.getElementById("cells-link");
   const off = cellsOff(data);
-  a.textContent = off.length ? `▦ 表 · 外した ${off.length} →` : "▦ 表 →";
+  a.textContent = off.length ? `▦ 表 · 外した ${off.length}` : "▦ 表";
   a.title = "データの表 — 使う / 使わないをますで選ぶ" + (off.length ? " · 外した: " + off.map(([id, f]) => `${id} ${cellLabel(f)}`).join(", ") : "");
   a.classList.toggle("warn", off.length > 0);
 }

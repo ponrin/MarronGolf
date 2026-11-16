@@ -2,10 +2,12 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+<meta name="theme-color" content="#f6f8fa">
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'">
-<title>GolfLab</title>
+<title>GolfLab · ショット情報</title>
 <style>
   :root {
     --fg: #1f2328; --fg-muted: #59636e; --canvas: #ffffff; --canvas-subtle: #f6f8fa;
@@ -159,22 +161,33 @@
 <meta name="golflab-v" content="1.1">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="mobile.css">
+<link rel="stylesheet" href="tabs.css">
 </head>
 <body>
-<header class="top">
-  <span class="crumb">marron<span class="sep">/</span><strong>GolfLab</strong></span>
-  <span class="Label">⛳ 記録の統計</span>
-  <span class="muted" id="counts">…</span>
-  <button class="info tag" type="button" data-for="note-full" aria-expanded="false"
-          title="数値はすべて X-SWING (室内シミュレーター) の画面の値。屋外で着地点を測った値ではない">画面の値 ⓘ</button>
-  <button class="info tag warn" type="button" data-for="note-full" aria-expanded="false" id="flag-tag" hidden>◎ 要確認</button>
-  <a class="Label cells-link" id="cells-link" href="data.html" title="データの表 — 使う / 使わないをますで選ぶ">▦ 表 →</a>
-  <p class="info-body" id="note-full" hidden>数値はすべて <strong>X-SWING (室内シミュレーター) の画面の値</strong>。屋外で着地点を測った値ではないの。
-    <span id="flag-note"></span> 表で外したますは画面の中だけ (集計の表 results/ は全部の球)。</p>
+<header class="appbar">
+  <div class="appbar-inner">
+    <span class="app-name"><span class="ball">⛳</span>GolfLab</span>
+    <span class="sep">|</span>
+    <strong class="tab-name" id="tab-title">ショット情報</strong>
+  </div>
 </header>
 <div id="error"></div>
 <div id="alarm" role="alert"></div>
 <main>
+<section class="tab-panel is-active" id="tab-shots" data-tab="shots" aria-label="ショット情報">
+<div class="tab-strip">
+  <span class="muted" id="counts">…</span>
+  <button class="info tag" type="button" data-for="note-full" aria-expanded="false"
+          title="数値はすべて X-SWING (室内シミュレーター) の画面の値。屋外で着地点を測った値ではない">画面の値 ⓘ</button>
+  <button class="info tag warn" type="button" data-for="note-full" aria-expanded="false" id="flag-tag" hidden>◎ 要確認</button>
+  <p class="info-body" id="note-full" hidden>数値はすべて <strong>X-SWING (室内シミュレーター) の画面の値</strong>。屋外で着地点を測った値ではないの。
+    <span id="flag-note"></span> 表で外したますは画面の中だけ (集計の表 results/ は全部の球)。</p>
+</div>
+<nav class="subseg" aria-label="グラフと表の切替">
+  <a href="#shots" data-sub="graph" aria-current="true">📊 グラフ</a>
+  <a href="#shots/table" data-sub="table" aria-current="false">▦ 表 <span class="Label warn" id="tbl-off-count" hidden></span></a>
+</nav>
+<div class="sub-panel is-active" data-sub="graph">
   <section class="Box">
     <div class="Box-header"><h2 class="Box-title">番手ごとの記録</h2><span class="muted key" title="1 点 = 1 球 · 縦線 = 平均 · 番手の右 = 平均値">● 1 球 · │ 平均</span></div>
     <div class="Box-body small-multiples">
@@ -187,8 +200,48 @@
       <div class="small-multiples" id="metrics"></div>
     </div>
   </section>
+  <section class="Box" hidden>
+    <div class="Box-header"><h2 class="Box-title">推移</h2></div>
+    <div class="empty" id="trend"></div>
+  </section>
+</div>
+<div class="sub-panel" data-sub="table">
+<section class="Box">
+  <div class="Box-header">
+    <h2 class="Box-title">1 球ずつのデータ</h2>
+    <button class="info" type="button" data-for="cells-info" aria-expanded="false" title="説明 (押すと開く)">ⓘ</button>
+    <span class="muted" id="tbl-counts">…</span>
+    <span class="muted tbl-key" title="橙の縁 = 外れ値の候補 (印のある値) · ✕ = 使わない (値は消さない)"><i class="cand-sw"></i>候補 · ✕ 使わない</span>
+  </div>
+  <div class="Box-body">
+    <div class="tab-strip">
+      <button class="btn warn" type="button" id="tbl-off-cand" title="橙の縁のますを全部「使わない」にする">候補を全部外す</button>
+      <button class="btn" type="button" id="tbl-on-all" title="外したますを全部「使う」に戻す">全部戻す</button>
+    </div>
+    <div class="info-body" id="cells-info" hidden>
+      <p>ますを押すと「使う / 使わない」が入れ替わる。値は消さない (薄く残す)。球の番号を押すと 1 球まるごと。</p>
+      <p>使わないますは、グラフの平均・n=、シミュレーション、計算モデルの HS の答え合わせで使わない。ほかの項目のますは使う。</p>
+      <p>橙の縁 = 外れ値の候補: HS の印 (hs_…) → HS · high_smash_review → ミート率 · low_spin_review → バックスピン。</p>
+      <p>このブラウザだけに覚える (data.json は変えない)。</p>
+    </div>
+    <div class="scroll" id="tbl-table"></div>
+  </div>
+</section>
+</div>
+</section>
+<section class="tab-panel" id="tab-clubs" data-tab="clubs" aria-label="クラブ情報">
   <section class="Box">
-    <div class="Box-header"><h2 class="Box-title">ボールの軌跡とシミュレーション</h2><button class="info" type="button" data-for="traj-info" aria-expanded="false" title="計算の前提と注意 (押すと開く)">ⓘ</button><span class="muted key" title="横から見た絵 · 線 = 計算 (モデル値) · 印 = 測った値">─ 計算 · ◆ 測定</span><span class="muted sim-check key" id="sim-check"></span><a class="Box-link" href="model.html" title="計算モデルの詳細">式 →</a></div>
+    <div class="Box-header"><h2 class="Box-title">クラブの仕様</h2><button class="info" type="button" data-for="specs-info" aria-expanded="false" title="記・測・算の意味と出所 (押すと開く)">ⓘ</button><span class="muted key" title="data/clubs.csv · 候補は data/candidate_clubs.csv">csv</span></div>
+    <div class="Box-body scroll"><div class="info-body" id="specs-info" hidden><p>出所: data/clubs.csv · 候補は data/candidate_clubs.csv</p></div><div id="specs"></div></div>
+  </section>
+  <section class="Box">
+    <div class="Box-header"><h2 class="Box-title">クラブのフロー</h2><span class="muted key" title="番手の順に線でつなぐ · 点線 = 直線の当てはめ (目安)"><i class="ln dash" style="border-color:var(--fg-muted)"></i>当てはめ</span></div>
+    <div class="Box-body small-multiples" id="flows"></div>
+  </section>
+</section>
+<section class="tab-panel" id="tab-sim" data-tab="sim" aria-label="シミュレーション">
+  <section class="Box">
+    <div class="Box-header"><h2 class="Box-title">ボールの軌跡とシミュレーション</h2><button class="info" type="button" data-for="traj-info" aria-expanded="false" title="計算の前提と注意 (押すと開く)">ⓘ</button><span class="muted key" title="横から見た絵 · 線 = 計算 (モデル値) · 印 = 測った値">─ 計算 · ◆ 測定</span><span class="muted sim-check key" id="sim-check"></span><a class="Label cells-link" id="cells-link" href="#shots/table" title="データの表 — 使う / 使わないをますで選ぶ">▦ 表</a><a class="Box-link" href="model.html" title="計算モデルの詳細">式 →</a></div>
     <div class="Box-body">
       <div class="info-body" id="traj-info" hidden>
         <p id="traj-note"></p>
@@ -278,19 +331,144 @@
       <div class="muted" id="traj-excluded" hidden><button class="info tag warn" type="button" data-for="traj-excluded-list" aria-expanded="false" id="traj-excluded-tag"></button><div class="info-body" id="traj-excluded-list" hidden></div></div>
     </div>
   </section>
-  <section class="Box">
-    <div class="Box-header"><h2 class="Box-title">推移</h2></div>
-    <div class="empty" id="trend"></div>
-  </section>
-  <section class="Box">
-    <div class="Box-header"><h2 class="Box-title">クラブの仕様</h2><button class="info" type="button" data-for="specs-info" aria-expanded="false" title="記・測・算の意味と出所 (押すと開く)">ⓘ</button><span class="muted key" title="data/clubs.csv · 候補は data/candidate_clubs.csv">csv</span></div>
-    <div class="Box-body scroll"><div class="info-body" id="specs-info" hidden><p>出所: data/clubs.csv · 候補は data/candidate_clubs.csv</p></div><div id="specs"></div></div>
-  </section>
-  <section class="Box">
-    <div class="Box-header"><h2 class="Box-title">クラブのフロー</h2><span class="muted key" title="番手の順に線でつなぐ · 点線 = 直線の当てはめ (目安)"><i class="ln dash" style="border-color:var(--fg-muted)"></i>当てはめ</span></div>
-    <div class="Box-body small-multiples" id="flows"></div>
-  </section>
+</section>
+<section class="tab-panel" id="tab-help" data-tab="help" aria-label="使い方">
+<section class="Box">
+  <div class="Box-header"><h2 class="Box-title">タブで見られる物</h2></div>
+  <div class="Box-body">
+    <div class="help-grid">
+      <a class="help-card" href="#shots">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"/><path d="M4 4v16"/><circle class="fill" cx="8" cy="15" r="1.6"/><circle class="fill" cx="11.5" cy="10" r="1.6"/><circle class="fill" cx="15" cy="12.5" r="1.6"/><circle class="fill" cx="18.5" cy="6.5" r="1.6"/></svg>
+        <b>ショット</b><span>番手ごとの記録のグラフ · 1 球ずつの表 (ますを外せる)</span>
+      </a>
+      <a class="help-card" href="#clubs">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3 9.2 17.5"/><path d="M9.2 17.5c-.4 1-1.3 1.9-2.6 2.3l-2.3.7c-.7.2-1.1-.4-.8-1l.9-1.6c.4-.7 1.2-1 2-.8z"/><circle cx="18" cy="18.5" r="2"/></svg>
+        <b>クラブ</b><span>クラブの仕様の表 · 重さや長さの流れ</span>
+      </a>
+      <a class="help-card" href="#sim">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 19C6 8 13 4 21 17"/><path d="M2 20h20"/><circle class="fill" cx="3.5" cy="18.5" r="1.6"/><path d="M19 13.5 21 17l-3.6.6"/></svg>
+        <b>シミュレーション</b><span>ボールの軌跡 · クラブや振りを「変える」と、今と変えた後を重ねる · 式 → で計算モデル</span>
+      </a>
+      <div class="help-card">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 13l3-4 3 3 4-5"/></svg>
+        <b>数値の出所</b><span>全部 X-SWING (室内シミュレーター) の画面の値 · 屋外で測った値ではない</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="Box">
+  <div class="Box-header"><h2 class="Box-title">グラフの読み方</h2></div>
+  <div class="Box-body help-fig">
+    <figure>
+      <figcaption>番手ごとの記録</figcaption>
+      <svg viewBox="0 0 300 92" role="img" aria-label="1 点が 1 球・縦線が平均・右の数字が平均値">
+        <rect class="row-bg" x="0" y="8" width="300" height="24" rx="3"/>
+        <text x="4" y="25">7I</text>
+        <line x1="40" y1="32" x2="250" y2="32" style="stroke:var(--grid)"/>
+        <circle cx="114" cy="20" r="5" style="fill:var(--accent)" opacity="0.8"/>
+        <circle cx="132" cy="20" r="5" style="fill:var(--accent)" opacity="0.8"/>
+        <circle cx="144" cy="20" r="5" style="fill:var(--accent)" opacity="0.8"/>
+        <circle cx="170" cy="20" r="5" fill="none" style="stroke:var(--attention-em)" stroke-width="2" stroke-dasharray="3 2"/>
+        <line x1="140" y1="10" x2="140" y2="30" style="stroke:var(--accent)" stroke-width="2.5"/>
+        <text x="258" y="25" font-weight="600">○○</text>
+        <text class="dim" x="98" y="52">● 1 球</text>
+        <text class="dim" x="140" y="66" text-anchor="middle">│ 平均</text>
+        <text class="dim" x="170" y="52">◌ 要確認</text>
+        <text class="dim" x="258" y="45">平均値</text>
+        <path d="M114 27 L106 42" style="stroke:var(--fg-muted)" fill="none"/>
+        <path d="M140 30 L140 56" style="stroke:var(--fg-muted)" fill="none" stroke-dasharray="2 2"/>
+        <path d="M172 27 L180 42" style="stroke:var(--fg-muted)" fill="none"/>
+        <text class="dim" x="4" y="86">緑 ◆ = PGA 平均 · ピンク ▲ = LPGA 平均 (外部の値)</text>
+      </svg>
+    </figure>
+    <figure>
+      <figcaption>ボールの軌跡</figcaption>
+      <svg viewBox="0 0 300 120" role="img" aria-label="線は計算・印は測った値・紫は変えた後">
+        <line x1="10" y1="80" x2="290" y2="80" style="stroke:var(--grid)"/>
+        <path d="M12 80 Q120 4 236 80" fill="none" style="stroke:var(--accent)" stroke-width="2.5"/>
+        <path d="M12 80 Q132 -10 262 80" fill="none" style="stroke:var(--after)" stroke-width="2.5"/>
+        <path d="M12 80 L80 36" style="stroke:var(--fg-muted)" stroke-width="1"/>
+        <text x="236" y="84" text-anchor="middle" style="fill:var(--accent)">◆</text>
+        <line x1="108" y1="40" x2="140" y2="40" style="stroke:var(--fg-muted)" stroke-width="2.5"/>
+        <text class="dim" x="44" y="30">打ち出し</text>
+        <text class="dim" x="147" y="36">最高点</text>
+        <text class="dim" x="10" y="100"><tspan style="fill:var(--accent)">─</tspan> 線 = 計算 · <tspan style="fill:var(--accent)">◆</tspan> = 測ったキャリー</text>
+        <text class="dim" x="10" y="116"><tspan style="fill:var(--after)">─</tspan> 紫 = 「変える」の後 (計算)</text>
+      </svg>
+    </figure>
+  </div>
+</section>
+
+<section class="Box">
+  <div class="Box-header"><h2 class="Box-title">印の意味</h2></div>
+  <div class="Box-body">
+    <table class="help-t">
+      <tr><th><span class="chip flag">◎ 要確認</span></th><td>確認が要る球。消さずに残して、橙で出す</td></tr>
+      <tr><th><span class="chip cand">○○.○</span></th><td>橙の縁 = 外れ値の候補のます</td></tr>
+      <tr><th><span class="chip off">○○.○</span></th><td>✕ = 使わない (値は消さない)。グラフの平均とシミュレーションから外れる</td></tr>
+    </table>
+    <table class="help-t" style="margin-top:8px">
+      <tr><th>候補の印</th><td><b>どのますか</b></td></tr>
+      <tr><th>hs_…</th><td>HS (最初から ✕)</td></tr>
+      <tr><th>high_smash_review</th><td>ミート率</td></tr>
+      <tr><th>low_spin_review</th><td>バックスピン</td></tr>
+    </table>
+    <p class="help-note">外したますはこのブラウザだけに覚える · 「全部戻す」で元に戻る</p>
+  </div>
+</section>
+
+<section class="Box">
+  <div class="Box-header"><h2 class="Box-title">クラブの表の 記・測・算</h2></div>
+  <div class="Box-body">
+    <table class="help-t">
+      <tr><th><span class="chip k">記</span></th><td>表の記載値 (ロフト・長さ・ライ・SW・シャフト)</td></tr>
+      <tr><th><span class="chip k">測</span></th><td>パパの測定値 (重さ・バランス点)</td></tr>
+      <tr><th><span class="chip k">算</span></th><td>計算した値 (Q14 = 重さ × (バランス点 − 35.56 cm)・SW の元)</td></tr>
+    </table>
+    <p class="help-note">薄い行 = 使っていないクラブや調べた候補 (メーカーの仕様表の値)</p>
+  </div>
+</section>
+
+<section class="Box">
+  <div class="Box-header"><h2 class="Box-title">iPhone のホーム画面に置く</h2></div>
+  <div class="Box-body">
+    <ol class="steps">
+      <li><span class="n">1</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M3 12h18"/><path d="M12 3c3 3 3 15 0 18"/><path d="M12 3c-3 3-3 15 0 18"/></svg>
+        Safari で開く</li>
+      <li><span class="n">2</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M6 11H5v10h14V11h-1"/></svg>
+        共有を押す</li>
+      <li><span class="n">3</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>
+        ホーム画面に追加</li>
+    </ol>
+    <p class="help-note">次からはホーム画面のアイコンから開く (アプリのように全画面で出る)</p>
+  </div>
+</section>
+</section>
 </main>
+<nav class="tabbar" aria-label="画面の切替">
+  <div class="tabbar-inner">
+    <a href="#shots" data-tab="shots" aria-current="page">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"/><path d="M4 4v16"/><circle class="fill" cx="8" cy="15" r="1.6"/><circle class="fill" cx="11.5" cy="10" r="1.6"/><circle class="fill" cx="15" cy="12.5" r="1.6"/><circle class="fill" cx="18.5" cy="6.5" r="1.6"/></svg>
+      <span>ショット</span>
+    </a>
+    <a href="#clubs" data-tab="clubs">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3 9.2 17.5"/><path d="M9.2 17.5c-.4 1-1.3 1.9-2.6 2.3l-2.3.7c-.7.2-1.1-.4-.8-1l.9-1.6c.4-.7 1.2-1 2-.8z"/><circle cx="18" cy="18.5" r="2"/></svg>
+      <span>クラブ</span>
+    </a>
+    <a href="#sim" data-tab="sim">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 19C6 8 13 4 21 17"/><path d="M2 20h20"/><circle class="fill" cx="3.5" cy="18.5" r="1.6"/><path d="M19 13.5 21 17l-3.6.6" /></svg>
+      <span>シミュレーション</span>
+    </a>
+    <a href="#help" data-tab="help">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.6 2.3c-.8.4-1.2 1-1.2 1.8v.6"/><circle class="fill" cx="12" cy="17" r="1.1"/></svg>
+      <span>使い方</span>
+    </a>
+  </div>
+</nav>
 <script src="record_format.js"></script>
 <script src="decide.js"></script>
 <script src="store.js"></script>
@@ -298,6 +476,8 @@
 <script src="gate.js"></script>
 <script src="physics.js"></script>
 <script src="cells.js"></script>
+<script src="shots_table.js"></script>
+<script src="tabs.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
