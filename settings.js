@@ -36,6 +36,13 @@
   for (const el of sheet.querySelectorAll("[data-settings-close]")) el.addEventListener("click", close);
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
 
+  const topbar = typeof GolfLabTopbar !== "undefined" ? GolfLabTopbar : null;
+  for (const r of sheet.querySelectorAll('input[name="topbar"]')) {
+    r.checked = !!topbar && topbar.mode() === r.value;
+    r.disabled = !topbar;
+    r.addEventListener("change", () => { if (r.checked && topbar) topbar.set(r.value); });
+  }
+
   const ask = document.getElementById("golflab-ask");
   if (ask && typeof MutationObserver === "function") {
     new MutationObserver(() => { if (!ask.hidden) close(); }).observe(ask, { attributes: true, attributeFilter: ["hidden"] });
