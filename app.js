@@ -53,11 +53,11 @@ const css = (name) => getComputedStyle(document.documentElement).getPropertyValu
 function dotPlot(data, opts) {
   const { field, unit, extraField, rowH = 24, step, digits = 1 } = opts;
   const showTotal = Boolean(extraField) && SHOW.total;
-  const meanCols = !SHOW.mine ? [] : [[field, opts.meanLabel || "平均 " + unit]].concat(
+  const meanCols = !SHOW.mine ? [] : [[field, opts.meanLabel || "平均"]].concat(
     showTotal && opts.extraMeanLabel ? [[extraField, opts.extraMeanLabel]] : []);
-  const labelW = 44, meanW = 56;
+  const labelW = 36, meanW = 36;
   const colX = (j) => labelW + meanW * (j + 1);
-  const W = Math.max(320, Math.round(opts.width || 640)), left = (meanCols.length ? colX(meanCols.length - 1) : labelW) + 8, right = 40, top = 18, bottom = 22;
+  const W = Math.max(320, Math.round(opts.width || 640)), left = (meanCols.length ? colX(meanCols.length - 1) : labelW) + 6, right = 12, top = 18, bottom = 22;
   const rows = data.order;
   const H = top + rows.length * rowH + bottom;
   const tour = (data.tour || []).filter((t) => t.club && Number.isFinite(t[field]) && SHOW[tourKey(t)]);
@@ -74,21 +74,24 @@ function dotPlot(data, opts) {
   const root = svg("svg", { viewBox: `0 0 ${W} ${H}`, role: "img" });
   const grid = svg("g", { class: "grid" });
   const axis = svg("g", { class: "axis" });
-  for (let v = lo; v <= hi + 1e-9; v += step) {
+  const every = Math.max(1, Math.ceil(30 / (((W - left - right) * step) / (hi - lo || 1))));
+  let tick = 0;
+  for (let v = lo; v <= hi + 1e-9; v += step, tick += 1) {
     grid.appendChild(svg("line", { x1: x(v), x2: x(v), y1: top, y2: H - bottom }));
-    axis.appendChild(svg("text", { x: x(v), y: H - 6, "text-anchor": "middle" }, String(Math.round(v * 10) / 10)));
+    if (tick % every === 0) axis.appendChild(svg("text", { x: x(v), y: H - 6, "text-anchor": "middle" }, String(Math.round(v * 10) / 10)));
   }
-  axis.appendChild(svg("text", { x: W - 2, y: H - 6, "text-anchor": "end" }, unit));
+  axis.appendChild(svg("text", { x: 4, y: H - 6, "text-anchor": "start" }, unit));
   root.appendChild(grid);
   const links = svg("g", { class: "links" });
   root.appendChild(links);
   const linkPts = { mine: [], total: [], pga: [], lpga: [] };
-  root.appendChild(svg("text", { x: 4, y: 12, class: "dim" }, "番手"));
-  meanCols.forEach(([, label], j) => root.appendChild(svg("text", { x: colX(j), y: 12, "text-anchor": "end", class: "dim" }, label)));
+  root.appendChild(svg("text", { x: 4, y: 12, class: "dim lc" }, "番手"));
+  meanCols.forEach(([, label], j) => root.appendChild(svg("text", { x: colX(j), y: 12, "text-anchor": "end", class: "dim lc" }, label)));
   rows.forEach((club, i) => {
     const y = top + i * rowH + rowH / 2;
     if (i % 2 === 0) root.appendChild(svg("rect", { class: "row-bg", x: 0, y: top + i * rowH, width: W, height: rowH, opacity: 0.6 }));
-    root.appendChild(svg("text", { x: 4, y: y + 4 }, clubLabel(club)));
+    const clubText = svg("text", { x: 4, y: y + 4, class: "lc" }, clubLabel(club));
+    root.appendChild(clubText);
     for (const t of tour.filter((t) => t.club === club)) {
       const cx = x(t[field]);
       linkPts[tourKey(t)].push([cx, y]);
@@ -109,11 +112,11 @@ function dotPlot(data, opts) {
       return vals.length ? vals.reduce((a, v) => a + v, 0) / vals.length : NaN;
     });
     if (shots.length === 0 && !means.some((v) => Number.isFinite(v))) {
-      meanCols.forEach((_, j) => root.appendChild(svg("text", { x: colX(j), y: y + 4, "text-anchor": "end", class: "dim" }, "—")));
+      meanCols.forEach((_, j) => root.appendChild(svg("text", { x: colX(j), y: y + 4, "text-anchor": "end", class: "dim lc" }, "—")));
       root.appendChild(svg("text", { x: left + 4, y: y + 4, class: "dim" }, "未測定"));
       return;
     }
-    means.forEach((avg, j) => root.appendChild(svg("text", { x: colX(j), y: y + 4, "text-anchor": "end", "font-weight": j === 0 ? 600 : 400 },
+    means.forEach((avg, j) => root.appendChild(svg("text", { x: colX(j), y: y + 4, "text-anchor": "end", class: "lc", "font-weight": j === 0 ? 600 : 400 },
       Number.isFinite(avg) ? avg.toFixed(digits) : "—")));
     const jitterOf = (s) => (((shots.includes(s) ? shots.indexOf(s) : clubShots.indexOf(s)) % 3) - 1) * 4;
     if (showTotal) {
@@ -129,7 +132,9 @@ function dotPlot(data, opts) {
       return;
     }
     const used = shots.filter((s) => isCellUsed(s, field));
-    root.appendChild(svg("text", { x: W - 2, y: y + 4, "text-anchor": "end", class: "dim" }, "n=" + used.length));
+    const nTitle = svg("title");
+    nTitle.textContent = `${clubLabel(club)} · 使う球 ${used.length}`;
+    clubText.appendChild(nTitle);
     shots.forEach((s) => {
       const off = !isCellUsed(s, field);
       const cx = x(s[field]), cy = y + jitterOf(s);
@@ -302,7 +307,7 @@ function drawCharts(data) {
   const carry = document.getElementById("carry");
   clearNode(carry);
   carry.appendChild(dotPlot(data, { field: "carry", extraField: "total", unit: "yd", step: 25, zero: false, digits: 1,
-    meanLabel: "キャリー", extraMeanLabel: "飛距離",
+    meanLabel: "C", extraMeanLabel: "T",
     width: carry.clientWidth }));
   const metrics = document.getElementById("metrics");
   clearNode(metrics);
