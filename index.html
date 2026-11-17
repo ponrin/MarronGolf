@@ -2,11 +2,10 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f8fa">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#10151c">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'">
 <title>GolfLab · ショット情報</title>
@@ -164,7 +163,6 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="mobile.css">
 <link rel="stylesheet" href="tabs.css">
-<script class="early" src="topbar.js"></script>
 </head>
 <body>
 <header class="appbar">
@@ -482,15 +480,6 @@
       <h2 class="settings-title" id="settings-title">設定</h2>
       <button class="settings-close" type="button" data-settings-close>閉じる</button>
     </div>
-    <section class="settings-sec">
-      <h3>上の帯の試し</h3>
-      <p class="settings-note">時計の辺りのモヤを比べる試し。選ぶとすぐ替わり、この端末に覚える。</p>
-      <div class="settings-choices" id="settings-topbar">
-        <label class="check"><input type="radio" name="topbar" value="a"><span>A · 今のまま</span></label>
-        <label class="check"><input type="radio" name="topbar" value="b"><span>B · 画面の地を上の帯の色に</span></label>
-        <label class="check"><input type="radio" name="topbar" value="c"><span>C · B と、上の帯を画面の上に固定</span></label>
-      </div>
-    </section>
     <section class="settings-sec">
       <h3>この端末の鍵</h3>
       <p class="settings-note">この端末に覚えた鍵を消すと、次に開く時にまた合言葉を聞くよ (押すと確かめが出る)。</p>

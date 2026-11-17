@@ -2,7 +2,7 @@
 :root { --tabbar-h: 44px; --appbar-h: 44px; }
 
 .appbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 10px;
-          min-height: var(--appbar-h); padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+          min-height: var(--appbar-h); padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
           background: var(--canvas-subtle); border-bottom: 1px solid var(--border); }
 .appbar-inner { width: 100%; max-width: 1012px; margin: 0 auto; display: flex; align-items: center; gap: 10px; min-height: var(--appbar-h); }
 .appbar .app-name { font-size: 15px; font-weight: 600; color: var(--accent); white-space: nowrap; }
@@ -153,18 +153,14 @@ table.help-t th { width: 1%; white-space: nowrap; }
 
 html.golflab-cover .settings { display: block; }
 html.golflab-cover .settings:not(.is-open) #golflab-erase {
-  position: fixed; top: calc(env(safe-area-inset-top) + 6px); right: max(12px, env(safe-area-inset-right)); z-index: 61; }
+  position: fixed; top: 6px; right: max(12px, env(safe-area-inset-right)); z-index: 61; }
 
 #golflab-msg:empty { display: none; }
 #golflab-gate:has(> #golflab-ask[hidden]):has(> #golflab-msg:empty) { display: none; }
 
-:root { --statusbar-bg: #1f2328; }
 :root { --appbar-bg: var(--canvas-subtle); }
-@media (prefers-color-scheme: dark) { :root { --statusbar-bg: #10151c; --appbar-bg: #10151c; } }
+@media (prefers-color-scheme: dark) { :root { --appbar-bg: #10151c; } }
 .appbar, .top { background: var(--appbar-bg); }
-body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: env(safe-area-inset-top, 0px);
-               background: var(--statusbar-bg); z-index: 40; pointer-events: none; }
-html.golflab-cover body::before { visibility: visible; }
 
 svg text.lc { font-size: 10px; font-variant-numeric: tabular-nums; }
 #carry svg .axis text, #metrics svg .axis text { font-size: 10px; font-variant-numeric: tabular-nums; }
@@ -175,12 +171,3 @@ svg text.lc { font-size: 10px; font-variant-numeric: tabular-nums; }
 #controls .control-title { min-width: 0; font-size: 12px; }
 #controls .check { min-height: 32px; font-size: 12px; gap: 4px; }
 #controls .check input[type="checkbox"] { width: 18px; height: 18px; }
-
-html.topbar-b, html.topbar-c, html.topbar-b body, html.topbar-c body { background: var(--appbar-bg); }
-html.topbar-b main, html.topbar-c main { background: var(--canvas); }
-html.topbar-b main { min-height: calc(100vh - var(--topbar-h, 44px)); }
-html.topbar-c main { min-height: 100vh;
-  padding-top: calc(var(--topbar-h, calc(var(--appbar-h) + env(safe-area-inset-top, 0px))) + 8px) !important; }
-html.topbar-c .appbar, html.topbar-c header.top { position: fixed; top: 0; left: 0; right: 0; z-index: 20; }
-.settings-choices { display: grid; gap: 0; }
-.settings-choices .check { min-height: 44px; font-size: 15px; gap: 8px; }
