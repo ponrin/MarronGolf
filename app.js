@@ -4,7 +4,8 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 const LABELS = { "50deg": "50°", "56deg": "56°", "48deg": "48°", "52deg": "52°" };
 
 const SHOW_KEY = "golflab-show-v1";
-const SERIES = [["mine", "パパの記録 (点と平均)"], ["total", "飛距離 (トータル)"], ["pga", "PGA 平均"], ["lpga", "LPGA 平均"]];
+const SERIES = [["mine", "パパの記録 (点と平均)", "パパ"], ["total", "飛距離 (トータル)", "トータル"], ["pga", "PGA 平均", "PGA"],
+  ["lpga", "LPGA 平均", "LPGA"]];
 const SHOW = Object.fromEntries(SERIES.map(([k]) => [k, true]));
 try {
   const saved = JSON.parse(localStorage.getItem(SHOW_KEY) || "{}");
@@ -394,8 +395,12 @@ function flowChart(data, f, width) {
   if (f.x !== "order") {
     const fit = linearFit(clubs.map((c) => [xv(c), c[f.y]]));
     if (fit) {
-      root.appendChild(svg("line", { x1: X(xLo), y1: Y(fit.a + fit.b * xLo), x2: X(xHi), y2: Y(fit.a + fit.b * xHi),
-        stroke: css("--fg-muted"), "stroke-width": 1, "stroke-dasharray": "4 4" }));
+      const fitLine = svg("line", { x1: X(xLo), y1: Y(fit.a + fit.b * xLo), x2: X(xHi), y2: Y(fit.a + fit.b * xHi),
+        stroke: css("--fg-muted"), "stroke-width": 1, "stroke-dasharray": "4 4" });
+      const fitTitle = svg("title");
+      fitTitle.textContent = "点線 = 直線の当てはめ (目安)";
+      fitLine.appendChild(fitTitle);
+      root.appendChild(fitLine);
     }
   }
   const sorted = clubs.slice().sort((a, b) => order.indexOf(a.club) - order.indexOf(b.club));
@@ -1253,15 +1258,20 @@ function renderControls(data) {
   const hasTour = (key) => (data.tour || []).some((t) => t.club && tourKey(t) === key);
   const row = el("div", "control-row");
   row.appendChild(el("span", "control-title", "表示"));
-  for (const [key, name] of SERIES) {
+  for (const [key, name, short] of SERIES) {
     if ((key === "pga" || key === "lpga") && !hasTour(key)) continue;
-    const label = el("label", "check");
+    const label = el("label", "check chip-check");
+    label.title = name;
+    label.dataset.series = key;
     const input = el("input");
     input.type = "checkbox";
     input.checked = SHOW[key];
     input.addEventListener("change", () => { SHOW[key] = input.checked; saveShow(); drawCharts(data); });
     label.appendChild(input);
-    label.appendChild(el("span", "", name));
+    const chip = el("span", "chip-t");
+    chip.appendChild(el("i", "chip-dot"));
+    chip.appendChild(document.createTextNode(short));
+    label.appendChild(chip);
     row.appendChild(label);
   }
   box.appendChild(row);

@@ -235,11 +235,12 @@
 </section>
 <section class="tab-panel" id="tab-clubs" data-tab="clubs" aria-label="クラブ情報">
   <section class="Box">
-    <div class="Box-header"><h2 class="Box-title">クラブの仕様</h2><button class="info" type="button" data-for="specs-info" aria-expanded="false" title="記・測・算の意味と出所 (押すと開く)">ⓘ</button><span class="muted key" title="data/clubs.csv · 候補は data/candidate_clubs.csv">csv</span></div>
+    <div class="Box-header"><h2 class="Box-title">クラブの仕様</h2><button class="info" type="button" data-for="specs-info" aria-expanded="false" title="記・測・算の意味と出所 (押すと開く)">ⓘ</button></div>
     <div class="Box-body scroll"><div class="info-body" id="specs-info" hidden><p>出所: data/clubs.csv · 候補は data/candidate_clubs.csv</p></div><div id="specs"></div></div>
   </section>
   <section class="Box">
-    <div class="Box-header"><h2 class="Box-title">クラブのフロー</h2><span class="muted key" title="番手の順に線でつなぐ · 点線 = 直線の当てはめ (目安)"><i class="ln dash" style="border-color:var(--fg-muted)"></i>当てはめ</span></div>
+    <div class="Box-header"><h2 class="Box-title">クラブのフロー</h2><button class="info" type="button" data-for="flows-info" aria-expanded="false" title="線の意味 (押すと開く)">ⓘ</button></div>
+    <div class="info-body flows-info" id="flows-info" hidden><p>番手の順に線でつなぐ · 点線 = 直線の当てはめ (目安)</p></div>
     <div class="Box-body small-multiples" id="flows"></div>
   </section>
 </section>
