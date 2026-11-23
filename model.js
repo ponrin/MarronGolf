@@ -4,8 +4,8 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 
 const HAS_PHYSICS = typeof GolfPhysics !== "undefined";
 const ON_GATE = typeof GolfLabGate !== "undefined";
-const NO_PHYSICS_ERROR = ON_GATE ? "physics.js が読めないの"
-  : "physics.js が読めないの。`swe3_detailed_design/view/` に `physics.js` があるか、Live Preview で開いているか確かめてね";
+const NO_PHYSICS_ERROR = "画面の物理の計算が読めないの。" +
+  (typeof GolfLabPcText !== "undefined" && typeof GolfLabPcText.modelPhysics === "string" ? GolfLabPcText.modelPhysics : "");
 
 function el(tag, cls, text) {
   const n = document.createElement(tag);
@@ -304,12 +304,22 @@ function renderSwing(cfg, data) {
   const { clubs, pts } = swingPoints(data);
   const base = pts.find((p) => p.club === "5I");
   if (!base || !base.nOk) { box.appendChild(el("div", "muted", "基準にする 5I の記録が無いので描けないの")); return; }
-  if (!Number.isFinite(CM_PER_IN)) { box.appendChild(el("div", "muted", "data.json に in → cm の換算 (swap.parts_model.in_to_cm) が無いので描けないの")); return; }
+  if (!Number.isFinite(CM_PER_IN)) { box.appendChild(el("div", "muted", "記録に in → cm の換算が無いので描けないの")); return; }
   const H0 = base.hsOk, L0 = base.L, I0 = base.I;
   const models = swingModels(H0, L0, I0, ARM_M, base);
   const W = Math.max(320, Math.round(box.clientWidth || 640)), H = 340;
   const left = 44, right = 16, top = 14, bottom = 34, pw = W - left - right, ph = H - top - bottom;
-  const xMin = 35, xMax = 46, yMin = 30, yMax = 46;
+  const lens = data.order.map((k) => clubs[k]).filter((c) => c && Number.isFinite(c.length_in)).map((c) => c.length_in)
+    .concat(pts.map((p) => p.L).filter(Number.isFinite));
+  const xMin = Math.floor(Math.min(...lens)), xMax = Math.max(Math.ceil(Math.max(...lens)), xMin + 1);
+  const specs = data.order.map((k) => clubs[k]).filter((c) => c && Number.isFinite(c.length_in) && ((c.parts || [])[0] || {}).i_est_kgcm2)
+    .map((c) => ({ club: c.club, L: c.length_in, I: c.parts[0].i_est_kgcm2, mass: c.total_mass_g, b: c.parts[0].b_pred_cm, rec: pts.some((p) => p.club === c.club) }));
+  const lineLs = [];
+  for (let L = xMin; L <= xMax + 1e-9; L += 0.25) lineLs.push(L);
+  const ys = pts.flatMap((p) => [p.hs, p.hsOk])
+    .concat(...models.map((m) => (m.points ? specs.map((c) => m.f(c.L, c.I, c)) : lineLs.map((L) => m.f(L)))))
+    .filter(Number.isFinite);
+  const yMin = Math.floor(Math.min(...ys) / 2) * 2, yMax = Math.max(Math.ceil(Math.max(...ys) / 2) * 2, yMin + 2);
   const x = (v) => left + ((v - xMin) / (xMax - xMin)) * pw, y = (v) => top + ph - ((v - yMin) / (yMax - yMin)) * ph;
   const root = svg("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "クラブの長さと HS: パパの記録と式の線" });
   const grid = svg("g", { class: "grid" });
@@ -330,9 +340,6 @@ function renderSwing(cfg, data) {
     const drvLabel = pts.some((p) => p.club === "Driver") ? "Driver" : "Driver (未測定)";
     root.appendChild(svg("text", { x: x(drv.length_in) - 4, y: top + 24, "text-anchor": "end", class: "dim" }, drvLabel));
   }
-  const specs = data.order.map((k) => clubs[k]).filter((c) => c && Number.isFinite(c.length_in) && ((c.parts || [])[0] || {}).i_est_kgcm2)
-    .map((c) => ({ club: c.club, L: c.length_in, I: c.parts[0].i_est_kgcm2, mass: c.total_mass_g, b: c.parts[0].b_pred_cm, rec: pts.some((p) => p.club === c.club) }));
-  const labelAt = { arm: 46 };
   for (const m of models) {
     if (m.points) {
       const ps = specs.map((c) => [c.L, m.f(c.L, c.I, c), c]);
@@ -346,10 +353,9 @@ function renderSwing(cfg, data) {
         root.appendChild(dot);
       }
     } else {
-      const p = [];
-      for (let L = xMin; L <= xMax + 1e-9; L += 0.25) p.push(`${x(L).toFixed(1)},${y(m.f(L)).toFixed(1)}`);
+      const p = lineLs.map((L) => `${x(L).toFixed(1)},${y(m.f(L)).toFixed(1)}`);
       root.appendChild(svg("polyline", { points: p.join(" "), fill: "none", stroke: css(m.color), "stroke-width": m.key === "arm" ? 2.5 : 2, "stroke-dasharray": m.dash }));
-      const at = labelAt[m.key] || xMax;
+      const at = xMax;
       root.appendChild(svg("text", { x: x(at) - 4, y: y(m.f(at)) + (m.key === "arm" ? 16 : -6), "text-anchor": "end", fill: css(m.color), "font-weight": 600 }, m.name));
     }
   }
@@ -394,7 +400,7 @@ function renderSwing(cfg, data) {
   const sd5 = b5.length > 1 ? Math.sqrt(b5.reduce((a, v) => a + (v - m5) ** 2, 0) / (b5.length - 1)) : NaN;
   const edge = (b) => b.arm <= 0.305 || b.arm >= 1.195;
   document.getElementById("swing-note").textContent =
-    `● パパの番手ごとの HS の平均 (X-SWING の画面の値) · ○ HS のますを外した球を除いた平均 (違う番手だけ・表 → で選ぶ) · 白抜きの点 = 記録の無い番手 (仕様だけで計算)。` +
+    `● パパの番手ごとの HS の平均 (X-SWING の画面の値) · ○ HS のますを外した球を除いた平均 (違う番手だけ・表で選ぶ) · 白抜きの点 = 記録の無い番手 (仕様だけで計算)。` +
     `どの式も 5I (${base.nOk} 球・${fmt(H0, 2)} m/s・平均の標準誤差 ${fmt(sd5 / Math.sqrt(b5.length), 2)} m/s) に合わせた「同じように振れたら」の計算。` +
     `「腕 + クラブ」= 腕とクラブが一直線で同じ角速度を持つと仮定した比較式 (ヘッドの速さ = 角速度 × (肩から手首 + クラブの長さ))。` +
     `「× グリップ端の MOI (中心)」「× 肩まわりの MOI」は、それにクラブの MOI の補正 (経験) (X_5I / X)^${N_FIX} を掛けたもの — 画面の「ボールの軌跡とシミュレーション」(重さを足す・クラブを替える) と同じ式で、` +
@@ -423,7 +429,7 @@ function bindSwingControls(cfg, data) {
       (body.hubWrist ? ` · パパが測った手首の高さ ${data.profile.wrist_to_floor_cm} cm (身長の比なら ${body.wristRatio.toFixed(1)} cm) からだと ${armLabel(body.hubWrist)} m` : "") +
       ` · Lampsa 0.615 · White 0.67 · 画面の計算は丸めない ${body.R_m.toFixed(6)} m)`;
   } else {
-    src.title = `(最初の値 = Lampsa 1975 の ${armLabel(body.R_m)} m — data.json に身長が無い · White 0.67)`;
+    src.title = `(最初の値 = Lampsa 1975 の ${armLabel(body.R_m)} m — 記録に身長が無い · White 0.67)`;
   }
   src.textContent = "(出所)";
   src.style.cursor = "help";
@@ -494,6 +500,7 @@ function renderSwingMass(cfg, data) {
   }
   box.appendChild(lg);
   const mass = rows.map((r) => r.mass).filter(Number.isFinite);
+  const spanJ = Math.ceil(Math.max(...rows.map((r) => Math.abs(r.pct.J))) * 10 - 1e-9) / 10;
   const pick = (key, better) => rows.reduce((a, r) => (better(r.pct[key], a.pct[key]) ? r : a));
   const hiJ = pick("J", (a, b) => a > b), loJ = pick("J", (a, b) => a < b), hiI = pick("I", (a, b) => a > b), loI = pick("I", (a, b) => a < b);
   const name = (r) => r.club.replace("deg", "°");
@@ -503,7 +510,7 @@ function renderSwingMass(cfg, data) {
     `5I を 0 にした時の、MOI の補正分 = (5I の MOI ÷ その番手の MOI)^${N_FIX} − 1 を、グリップ端の MOI (中心) と肩まわりの MOI の 2 本で。` +
     `長さによる慣性の変化も含む (長い番手ほどグリップ端の MOI は大きい)。腕 ${armLabel(ARM_M)} m (つまみと同じ)・腕の質量と慣性は Lampsa 1975 の仮定。` +
     `肩まわりでは、クラブの総重量そのものが効く (クラブの質量 × 肩からの距離² の項): 一番回しやすいのは ${name(hiJ)} (${fmt(hiJ.mass, 0)} g・${signed(hiJ.pct.J, 1)}%)、` +
-    `一番回しにくいのは ${name(loJ)} (${fmt(loJ.mass, 0)} g・${signed(loJ.pct.J, 1)}%)。総重量が ${fmt(Math.max(...mass) - Math.min(...mass), 0)} g 違っても ±1% くらいに収まるのは、` +
+    `一番回しにくいのは ${name(loJ)} (${fmt(loJ.mass, 0)} g・${signed(loJ.pct.J, 1)}%)。総重量が ${fmt(Math.max(...mass) - Math.min(...mass), 0)} g 違っても ±${fmt(spanJ, 1)}% に収まるのは、` +
     `腕の慣性 (${fmt(GolfPhysics.ARM_I_HUB, 2)} kg·m²) が大きいから。グリップ端では ${name(hiI)} が ${signed(hiI.pct.I, 1)}%・${name(loI)} が ${signed(loI.pct.I, 1)}%。` +
     (drv && drv.pct.I < 0 && drv.pct.J > 0 ? `番手どうしでは 2 本の向きが違って見えるが、どちらも定義どおり (Driver は 5I より軽い (${fmt(drv.mass, 0)} g) が長いのでグリップ端の MOI は大きい → グリップ端では回しにくい側・肩まわりでは回しやすい側)。` : "") +
     `どこに付けるかで違う: 5I に 10 g を足すと肩まわりの MOI はヘッドで ${fmt(dHead, 2)}%・グリップ端から 18 cm で ${fmt(dGrip, 2)}% 増える。` +
@@ -529,7 +536,7 @@ function renderMopt(cfg, data) {
   document.getElementById("mopt").appendChild(t);
   const heads = data.clubs.map((c) => [c.club.replace("deg", "°"), ((c.parts || [])[0] || {}).head_mass_g]).filter(([, v]) => Number.isFinite(v));
   document.getElementById("mopt-note").textContent =
-    `ボール m = ${fmt(m, 2)} g (data.json の係数)。最適の近くは平ら: 136〜283 g でボールスピードの低下は 1% 以内 (Daish)。` +
+    `ボール m = ${fmt(m, 2)} g (弾道の係数)。最適の近くは平ら: 136〜283 g でボールスピードの低下は 1% 以内 (Daish)。` +
     `パパのヘッドの見積もり (総重量 − シャフト − グリップ 50 g): ` + heads.map(([k, v]) => `${k} ${fmt(v, 0)} g`).join(" · ") + "。" +
     `cos θ は外に掛かる係数なので、フェースに垂直な成分 v_n の最適はロフトに依らない (e が質量で変わらない時)。スピンや合わせたボールスピードの最適までは、この表のままとは言えない。` +
     `この M_opt は反発係数 e が質量で変わらない時だけ。White 2006 の「197.5 g」はエネルギーの伝わり方の効率の最適で、飛距離の最適ではない。`;
@@ -538,14 +545,14 @@ function renderMopt(cfg, data) {
 function renderCellsTag(data) {
   const off = cellsOff(data);
   const a = document.getElementById("cells-link");
-  a.textContent = off.length ? `▦ 表 · 外した ${off.length} →` : "▦ 表 →";
+  a.textContent = off.length ? `▦ 表 · 外した ${off.length}` : "▦ 表";
   a.title = "データの表 — 使う / 使わないをますで選ぶ" + (off.length ? " · 外した: " + off.map(([id, f]) => `${id} ${cellLabel(f)}`).join(", ") : "");
   a.classList.toggle("warn", off.length > 0);
   const hs = off.filter(([, f]) => f === "club_speed").map(([id]) => id);
   const tag = document.getElementById("excl-count");
   tag.hidden = hs.length === 0;
   tag.textContent = `HS を外した ${hs.length} 球`;
-  tag.title = hs.join(", ") + " — 答え合わせと基準の 5I から除く (表 → で切り替え)";
+  tag.title = hs.join(", ") + " — 答え合わせと基準の 5I から除く (表で切り替え)";
 }
 
 function drawPage(data) {
@@ -554,7 +561,7 @@ function drawPage(data) {
   window.addEventListener("pageshow", (e) => { if (e.persisted) location.reload(); });
   const model = (data.trajectories || {}).model || {};
   const cfg = model.config;
-  if (!cfg) throw new Error("data.json に弾道の係数 (trajectories.model.config) が無い");
+  if (!cfg) throw new Error("記録に弾道の係数が無い");
   renderEquations(cfg, model);
   renderCoefChart(cfg, data);
   renderConsts(cfg);
@@ -565,11 +572,12 @@ function drawPage(data) {
   } else {
     document.getElementById("error").textContent = NO_PHYSICS_ERROR;
     for (const id of ["check", "tour-check", "swing-chart", "swing-acc", "swing-mass"]) {
-      document.getElementById(id).textContent = "physics.js が読めないので出していない";
+      document.getElementById(id).textContent = "物理の計算が読めないので出していない";
     }
     for (const id of ["arm-len", "eval-wedge"]) document.getElementById(id).disabled = true;
   }
   renderMopt(cfg, data);
+  document.getElementById("tabbar").hidden = false;
 }
 
 let gateDrawn = false;
@@ -607,8 +615,8 @@ fetch("data.json", { cache: "no-store" })
   .then((r) => { if (!r.ok) throw new Error("http " + r.status); return r.json(); })
   .then(drawPage)
   .catch((e) => {
+    const pc = typeof GolfLabPcText !== "undefined" && typeof GolfLabPcText.modelLoad === "string" ? GolfLabPcText.modelLoad : "";
     document.getElementById("error").textContent =
-      "data.json が読めないの (" + e.message + ")。Live Preview で開いているか、`python swe3_detailed_design/src/export_view.py` を回したか確かめてね" +
-      (HAS_PHYSICS ? "" : " ／ " + NO_PHYSICS_ERROR);
+      "記録が読めないの (" + e.message + ")。" + pc + (HAS_PHYSICS ? "" : " ／ " + NO_PHYSICS_ERROR);
   });
 }

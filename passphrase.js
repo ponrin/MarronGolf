@@ -12,7 +12,7 @@ var GolfLabPassphrase = (function () {
     wrong: "合言葉が違うか、記録が壊れている。もう一度入れてね。",
     noCrypto: "このブラウザでは暗号の機能が使えない (https で開いてね)",
     saveFailed: "保存できなかった。開き直してね",
-    eraseFailed: "鍵を消せなかった。もう一度押してね",
+    eraseFailed: "鍵を消せなかった。歯車の設定から、もう一度押してね",
   });
   var ERROR_WORDS = Object.freeze(["empty", "wrong", "noCrypto", "saveFailed", "eraseFailed"]);
   var ERROR_CLASS = "golflab-error";
@@ -24,7 +24,7 @@ var GolfLabPassphrase = (function () {
   var LABEL_TEXT = "合言葉";
   var OPEN_TEXT = "開く";
   var ERASE_TEXT = "鍵を消す";
-  var CONFIRM_TEXT = "この端末に覚えた鍵を消す？ 次に開く時にまた合言葉を聞くよ。";
+  var CONFIRM_TEXT = "この端末に覚えた鍵を消す？ 消すと記録を隠して、すぐに合言葉を聞くよ。";
 
   var refs = null;
 
@@ -69,6 +69,9 @@ var GolfLabPassphrase = (function () {
     var win = refs.doc.defaultView || (typeof window !== "undefined" ? window : null);
     var ok = !!(win && typeof win.confirm === "function" && win.confirm(CONFIRM_TEXT));
     if (!ok) return;
+    if (typeof GolfLabSettings !== "undefined" && GolfLabSettings && typeof GolfLabSettings.close === "function") {
+      GolfLabSettings.close();
+    }
     if (typeof GolfLabGate !== "undefined" && GolfLabGate && typeof GolfLabGate.erase === "function") {
       GolfLabGate.erase();
     }
@@ -91,16 +94,17 @@ var GolfLabPassphrase = (function () {
     askBox.appendChild(el(doc, "label", { for: IDS.pass }, LABEL_TEXT));
     askBox.appendChild(pass);
     askBox.appendChild(openBtn);
-    box.appendChild(hintEl);
     box.appendChild(msg);
     box.appendChild(askBox);
     var main = doc.querySelector("main");
     var parent = main || doc.body;
     parent.insertBefore(box, parent.firstChild);
+    parent.insertBefore(hintEl, box);
     var eraseBtn = el(doc, "button", { id: IDS.erase, type: "button" }, ERASE_TEXT);
     eraseBtn.disabled = true;
-    var top = doc.querySelector("header.top");
-    (top || box).appendChild(eraseBtn);
+    var slot = typeof GolfLabSettings !== "undefined" && GolfLabSettings && typeof GolfLabSettings.eraseSlot === "function"
+      ? GolfLabSettings.eraseSlot() : null;
+    (slot || box).appendChild(eraseBtn);
     openBtn.addEventListener("click", function () { submit(); });
     pass.addEventListener("keydown", function (e) { onKey(e); });
     eraseBtn.addEventListener("click", function () { onErase(); });

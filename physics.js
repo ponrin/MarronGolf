@@ -270,7 +270,7 @@ var GolfPhysics = (function () {
   function selfCheck(data) {
     var T = data && data.trajectories;
     var cfg = T && T.model && T.model.config;
-    if (!cfg) return { ok: false, checked: 0, failures: ["data.json に弾道の係数 (trajectories.model.config) が無い"] };
+    if (!cfg) return { ok: false, checked: 0, failures: ["記録に弾道の係数が無い"] };
     var shots = (data.shots || []);
     var byId = {};
     for (var i = 0; i < shots.length; i++) byId[shots[i].shot_id] = shots[i];
@@ -287,7 +287,7 @@ var GolfPhysics = (function () {
           res.apex_yd.toFixed(2) + " (Python " + t.apex + ")");
       }
     }
-    if (rows.length === 0) failures.push("data.json に軌跡が無い");
+    if (rows.length === 0) failures.push("記録に軌跡が無い");
     return { ok: failures.length === 0, checked: rows.length, failures: failures };
   }
 
@@ -358,9 +358,9 @@ var GolfPhysics = (function () {
     var t = text.replace(/[！-～]/g, function (ch) {
       return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0);
     }).trim().toUpperCase();
-    if (t === "") return fail("SW が空 (例 D2・D2.5・C9)");
+    if (t === "") return fail("SW が空 (例 B4・B4.5・E7)");
     var m = SW_PATTERN.exec(t);
-    if (!m) return fail("SW は A〜F の 1 文字と 0〜9 の数字 (.5 まで) — 例 D2・D2.5・C9 (入力 \"" + text + "\")");
+    if (!m) return fail("SW は A〜F の 1 文字と 0〜9 の数字 (.5 まで) — 例 B4・B4.5・E7 (入力 \"" + text + "\")");
     return { ok: true, sw: t, points: (m[1].charCodeAt(0) - 68) * 10 + Number(m[2]) };
   }
 
@@ -658,7 +658,7 @@ var GolfPhysics = (function () {
         }
       }
     }
-    if (checked === 0 && failures.length === 0) failures.push("data.json に部品モデルが無い");
+    if (checked === 0 && failures.length === 0) failures.push("記録に部品モデルが無い");
     return { ok: failures.length === 0, checked: checked, failures: failures };
   }
 
@@ -755,14 +755,14 @@ var GolfPhysics = (function () {
 
   function simPlan(data, state) {
     if (!data || typeof data !== "object" || !Array.isArray(data.clubs) || !Array.isArray(data.shots)) {
-      return fail("data.json の番手 (clubs) と記録 (shots) が無い");
+      return fail("記録に番手と球が無い");
     }
     var cfg = data.trajectories && data.trajectories.model && data.trajectories.model.config;
     var cfgBad = configProblem(cfg);
     if (cfgBad) return fail(cfgBad);
     if (!state || typeof state !== "object") return fail("画面の状態 (state) が無い");
     var club = findClub(data, state.club);
-    if (!club) return fail("番手を選んでね (" + state.club + " は data.json に無い)");
+    if (!club) return fail("番手を選んでね (" + state.club + " は記録に無い)");
     var change = state.change, swing = state.swing;
     if (!change || typeof change !== "object" || CHANGE_KINDS.indexOf(change.kind) < 0) {
       return fail("クラブの変え方 (change.kind) は none / weight / swap");

@@ -1,45 +1,69 @@
 "use strict";
 
-(function () {
+const GolfLabTabs = (() => {
   const TABS = { shots: "ショット情報", clubs: "クラブ情報", sim: "シミュレーション", help: "使い方" };
   const SUBS = ["graph", "table"];
+  const GRAPH = { tab: "shots", sub: "graph" };
+  let current = GRAPH;
+  let onShow = null;
 
-  function parse() {
-    const h = decodeURIComponent((location.hash || "").replace(/^#/, ""));
-    const [tab, sub] = h.split("/");
-    if (!Object.prototype.hasOwnProperty.call(TABS, tab)) return { tab: "shots", sub: "graph" };
-    return { tab, sub: tab === "shots" && SUBS.includes(sub) ? sub : "graph" };
+  function parseHash(hash) {
+    const h = typeof hash === "string" ? hash : "";
+    if (h === "#shots") return { tab: "shots", sub: "graph" };
+    if (h === "#shots/table") return { tab: "shots", sub: "table" };
+    if (h === "#clubs" || h === "#sim" || h === "#help") return { tab: h.slice(1), sub: "graph" };
+    return { tab: GRAPH.tab, sub: GRAPH.sub };
   }
 
-  let last = null;
-  function apply() {
-    const { tab, sub } = parse();
-    for (const p of document.querySelectorAll(".tab-panel")) {
-      const on = p.dataset.tab === tab;
-      p.classList.toggle("is-active", on);
-      p.setAttribute("aria-hidden", String(!on));
+  function show(view) {
+    const v = view && Object.prototype.hasOwnProperty.call(TABS, view.tab) ? view : GRAPH;
+    const sub = SUBS.includes(v.sub) ? v.sub : "graph";
+    for (const p of document.querySelectorAll("section.tab-panel[data-tab]")) {
+      p.classList.toggle("is-active", p.getAttribute("data-tab") === v.tab);
     }
-    for (const a of document.querySelectorAll(".tabbar a[data-tab]")) {
-      if (a.dataset.tab === tab) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+    for (const p of document.querySelectorAll("div.sub-panel[data-sub]")) {
+      p.classList.toggle("is-active", p.getAttribute("data-sub") === sub);
     }
-    for (const p of document.querySelectorAll(".sub-panel")) p.classList.toggle("is-active", p.dataset.sub === sub);
-    for (const a of document.querySelectorAll(".subseg a[data-sub]")) a.setAttribute("aria-current", String(a.dataset.sub === sub));
+    for (const a of document.querySelectorAll("a[data-tab]")) {
+      if (a.getAttribute("data-tab") === v.tab) a.setAttribute("aria-current", "page");
+      else a.removeAttribute("aria-current");
+    }
+    for (const a of document.querySelectorAll("a[data-sub]")) {
+      a.setAttribute("aria-current", String(a.getAttribute("data-sub") === sub));
+    }
     const title = document.getElementById("tab-title");
-    if (title) title.textContent = TABS[tab];
-    document.title = "GolfLab · " + TABS[tab];
-    const key = tab + "/" + sub;
-    if (last !== null && last !== key) window.scrollTo(0, 0);
-    last = key;
+    if (title) title.textContent = TABS[v.tab];
+    current = { tab: v.tab, sub };
   }
 
-  for (const a of document.querySelectorAll(".tabbar a[data-tab]")) {
+  function ready(fn) {
+    const bar = document.getElementById("tabbar");
+    if (bar) bar.hidden = false;
+    if (typeof fn === "function") onShow = fn;
+  }
+
+  show(parseHash(location.hash));
+
+  window.addEventListener("hashchange", () => {
+    show(parseHash(location.hash));
+    window.scrollTo(0, 0);
+    if (onShow) onShow({ tab: current.tab, sub: current.sub });
+  });
+
+  for (const a of document.querySelectorAll("a[data-tab]")) {
     a.addEventListener("click", (e) => {
-      if (parse().tab === a.dataset.tab && location.hash.replace(/^#/, "").split("/")[0] === a.dataset.tab) {
-        if (!location.hash.includes("/")) { e.preventDefault(); window.scrollTo({ top: 0, behavior: "smooth" }); }
-      }
+      if (a.getAttribute("data-tab") !== current.tab) return;
+      e.preventDefault();
+      window.scrollTo(0, 0);
+    });
+  }
+  for (const a of document.querySelectorAll("a[data-sub]")) {
+    a.addEventListener("click", (e) => {
+      if (current.tab !== "shots" || a.getAttribute("data-sub") !== current.sub) return;
+      e.preventDefault();
+      window.scrollTo(0, 0);
     });
   }
 
-  window.addEventListener("hashchange", apply);
-  apply();
+  return Object.freeze({ parseHash, show, ready });
 })();

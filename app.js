@@ -4,8 +4,7 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 const LABELS = { "50deg": "50°", "56deg": "56°", "48deg": "48°", "52deg": "52°" };
 
 const SHOW_KEY = "golflab-show-v1";
-const SERIES = [["mine", "パパの記録 (点と平均)", "パパ"], ["total", "飛距離 (トータル)", "トータル"], ["pga", "PGA 平均", "PGA"],
-  ["lpga", "LPGA 平均", "LPGA"]];
+const SERIES = [["mine", "パパの記録 (点と平均)"], ["total", "飛距離 (トータル)"], ["pga", "PGA 平均"], ["lpga", "LPGA 平均"]];
 const SHOW = Object.fromEntries(SERIES.map(([k]) => [k, true]));
 try {
   const saved = JSON.parse(localStorage.getItem(SHOW_KEY) || "{}");
@@ -15,6 +14,14 @@ function saveShow() {
   try { localStorage.setItem(SHOW_KEY, JSON.stringify(SHOW)); } catch (e) {   }
 }
 const tourKey = (t) => (/^LPGA/i.test(t.tour) ? "lpga" : "pga");
+function tickEvery(step, pxPerStep) {
+  if (!Number.isFinite(pxPerStep) || pxPerStep <= 0) return 1;
+  let k = Math.max(1, Math.ceil(30 / pxPerStep));
+  if (!Number.isFinite(k)) return Number.MAX_SAFE_INTEGER;
+  while (k * pxPerStep < 30) k += 1;
+  while (k > 1 && (k - 1) * pxPerStep >= 30) k -= 1;
+  return k;
+}
 const GAP_WIDE = 15;
 const GAP_TIGHT = 5;
 
@@ -56,9 +63,10 @@ function dotPlot(data, opts) {
   const showTotal = Boolean(extraField) && SHOW.total;
   const meanCols = !SHOW.mine ? [] : [[field, opts.meanLabel || "平均"]].concat(
     showTotal && opts.extraMeanLabel ? [[extraField, opts.extraMeanLabel]] : []);
-  const labelW = 36, meanW = 36;
-  const colX = (j) => labelW + meanW * (j + 1);
-  const W = Math.max(320, Math.round(opts.width || 640)), left = (meanCols.length ? colX(meanCols.length - 1) : labelW) + 6, right = 12, top = 18, bottom = 22;
+  const clubW = 44, meanW = 42;
+  const colW = clubW + meanW * meanCols.length;
+  const W = Math.max(320, Math.round(opts.width || 640));
+  const PW = W - colW, left = 8, right = 12, top = 0, bottom = 22;
   const rows = data.order;
   const H = top + rows.length * rowH + bottom;
   const tour = (data.tour || []).filter((t) => t.club && Number.isFinite(t[field]) && SHOW[tourKey(t)]);
@@ -66,33 +74,101 @@ function dotPlot(data, opts) {
     .concat(tour.map((t) => t[field])).filter((v) => Number.isFinite(v));
   if (vals.length === 0) {
     const empty = svg("svg", { viewBox: `0 0 ${W} 40`, role: "img" });
-    empty.appendChild(svg("text", { x: 4, y: 24, class: "dim" }, "表示するものが選ばれていないの (上のチェックボックス)"));
+    empty.appendChild(svg("text", { x: 4, y: 24, class: "dim" }, "表示するものが選ばれていないの (上の「表示」の札)"));
     return empty;
   }
   const lo = opts.zero ? 0 : Math.floor(Math.min(...vals) / step) * step;
   const hi = Math.ceil(Math.max(...vals) / step) * step;
-  const x = (v) => left + ((v - lo) / (hi - lo || 1)) * (W - left - right);
-  const root = svg("svg", { viewBox: `0 0 ${W} ${H}`, role: "img" });
+  const x = (v) => left + ((v - lo) / (hi - lo || 1)) * (PW - left - right);
+  const plot = el("div", "dot-plot");
+  if (extraField && meanCols.length) {
+    const keyRow = el("div", "dot-plot-key");
+    keyRow.appendChild(el("span", "key", meanCols.length > 1 ? "C = キャリー · T = 飛距離 (トータル) の平均" : "C = キャリーの平均"));
+    plot.appendChild(keyRow);
+  }
+  const head = el("div", "dot-plot-head");
+  head.style.display = "flex";
+  head.style.alignItems = "center";
+  head.style.height = rowH + "px";
+  const headCols = el("div", "dot-plot-cols");
+  headCols.style.display = "flex";
+  headCols.style.flex = "none";
+  headCols.style.width = colW + "px";
+  const headClub = el("span", "dim", "番手");
+  headClub.style.width = clubW + "px";
+  headCols.appendChild(headClub);
+  for (const [, label] of meanCols) {
+    const h = el("span", "dim dot-plot-mean", label);
+    h.style.width = meanW + "px";
+    headCols.appendChild(h);
+  }
+  head.appendChild(headCols);
+  const unitTag = el("span", "dim dot-plot-unit", unit);
+  unitTag.style.marginLeft = "auto";
+  head.appendChild(unitTag);
+  plot.appendChild(head);
+  const body = el("div", "dot-plot-body");
+  body.style.display = "flex";
+  const cols = el("div", "dot-plot-cols");
+  cols.style.flex = "none";
+  cols.style.width = colW + "px";
+  body.appendChild(cols);
+  const boxes = el("div", "club-ns");
+  const root = svg("svg", { viewBox: `0 0 ${PW} ${H}`, role: "img" });
+  root.style.width = PW + "px";
+  root.style.height = H + "px";
+  root.style.flex = "none";
   const grid = svg("g", { class: "grid" });
   const axis = svg("g", { class: "axis" });
-  const every = Math.max(1, Math.ceil(30 / (((W - left - right) * step) / (hi - lo || 1))));
-  let tick = 0;
-  for (let v = lo; v <= hi + 1e-9; v += step, tick += 1) {
+  const every = tickEvery(step, ((PW - left - right) * step) / (hi - lo || 1));
+  for (let v = lo, k = 0; v <= hi + 1e-9; v += step, k++) {
     grid.appendChild(svg("line", { x1: x(v), x2: x(v), y1: top, y2: H - bottom }));
-    if (tick % every === 0) axis.appendChild(svg("text", { x: x(v), y: H - 6, "text-anchor": "middle" }, String(Math.round(v * 10) / 10)));
+    if (k % every === 0) axis.appendChild(svg("text", { x: x(v), y: H - 6, "text-anchor": "middle" }, String(Math.round(v * 10) / 10)));
   }
-  axis.appendChild(svg("text", { x: 4, y: H - 6, "text-anchor": "start" }, unit));
   root.appendChild(grid);
   const links = svg("g", { class: "links" });
   root.appendChild(links);
   const linkPts = { mine: [], total: [], pga: [], lpga: [] };
-  root.appendChild(svg("text", { x: 4, y: 12, class: "dim lc" }, "番手"));
-  meanCols.forEach(([, label], j) => root.appendChild(svg("text", { x: colX(j), y: 12, "text-anchor": "end", class: "dim lc" }, label)));
   rows.forEach((club, i) => {
     const y = top + i * rowH + rowH / 2;
-    if (i % 2 === 0) root.appendChild(svg("rect", { class: "row-bg", x: 0, y: top + i * rowH, width: W, height: rowH, opacity: 0.6 }));
-    const clubText = svg("text", { x: 4, y: y + 4, class: "lc" }, clubLabel(club));
-    root.appendChild(clubText);
+    if (i % 2 === 0) root.appendChild(svg("rect", { class: "row-bg", x: 0, y: top + i * rowH, width: PW, height: rowH, opacity: 0.6 }));
+    const clubShots = data.shots.filter((s) => s.club === club);
+    const shots = clubShots.filter((s) => Number.isFinite(s[field]));
+    const used = shots.filter((s) => isCellUsed(s, field));
+    const means = meanCols.map(([key]) => {
+      const vals = clubShots.filter((s) => isCellUsed(s, key)).map((s) => s[key]).filter((v) => Number.isFinite(v));
+      return vals.length ? vals.reduce((a, v) => a + v, 0) / vals.length : NaN;
+    });
+    const boxId = `club-n-${field}-${i}`;
+    const line = el("div", "dot-plot-row");
+    line.style.display = "flex";
+    line.style.alignItems = "center";
+    line.style.height = rowH + "px";
+    const tag = el("button", "info club-tag", clubLabel(club));
+    tag.type = "button";
+    tag.dataset.for = boxId;
+    tag.setAttribute("aria-expanded", "false");
+    tag.title = `${clubLabel(club)} の球数 (押すと開く)`;
+    tag.style.width = colW + "px";
+    tag.style.height = rowH + "px";
+    line.appendChild(tag);
+    means.forEach((avg, j) => {
+      const m = el("span", j === 0 ? "dot-plot-mean main" : "dot-plot-mean", Number.isFinite(avg) ? avg.toFixed(digits) : "—");
+      m.style.width = meanW + "px";
+      m.style.pointerEvents = "none";
+      if (j === 0) m.style.marginLeft = -(meanW * means.length) + "px";
+      line.appendChild(m);
+    });
+    cols.appendChild(line);
+    const totals = showTotal ? clubShots.filter((s) => isCellUsed(s, extraField)).map((s) => s[extraField]).filter((v) => Number.isFinite(v)) : [];
+    const name = clubLabel(club), tot = ` · トータル ${totals.length} 球`;
+    const nText = shots.length === 0 ? (totals.length ? `${name} · キャリー 未測定${tot}` : `${name} · 未測定`)
+      : used.length === 0 ? (totals.length ? `${name} · キャリー 0 球 (表で外した)${tot}` : `${name} · 0 球 (表で外した)`)
+        : `${name} · ${used.length} 球` + (showTotal ? tot : "");
+    const box = el("div", "club-n", nText);
+    box.setAttribute("id", boxId);
+    box.hidden = true;
+    boxes.appendChild(box);
     for (const t of tour.filter((t) => t.club === club)) {
       const cx = x(t[field]);
       linkPts[tourKey(t)].push([cx, y]);
@@ -106,19 +182,10 @@ function dotPlot(data, opts) {
       root.appendChild(mark);
     }
     if (!SHOW.mine) return;
-    const clubShots = data.shots.filter((s) => s.club === club);
-    const shots = clubShots.filter((s) => Number.isFinite(s[field]));
-    const means = meanCols.map(([key]) => {
-      const vals = clubShots.filter((s) => isCellUsed(s, key)).map((s) => s[key]).filter((v) => Number.isFinite(v));
-      return vals.length ? vals.reduce((a, v) => a + v, 0) / vals.length : NaN;
-    });
     if (shots.length === 0 && !means.some((v) => Number.isFinite(v))) {
-      meanCols.forEach((_, j) => root.appendChild(svg("text", { x: colX(j), y: y + 4, "text-anchor": "end", class: "dim lc" }, "—")));
       root.appendChild(svg("text", { x: left + 4, y: y + 4, class: "dim" }, "未測定"));
       return;
     }
-    means.forEach((avg, j) => root.appendChild(svg("text", { x: colX(j), y: y + 4, "text-anchor": "end", class: "lc", "font-weight": j === 0 ? 600 : 400 },
-      Number.isFinite(avg) ? avg.toFixed(digits) : "—")));
     const jitterOf = (s) => (((shots.includes(s) ? shots.indexOf(s) : clubShots.indexOf(s)) % 3) - 1) * 4;
     if (showTotal) {
       for (const s of clubShots.filter((s) => Number.isFinite(s[extraField]))) {
@@ -126,16 +193,11 @@ function dotPlot(data, opts) {
           "stroke-opacity": isCellUsed(s, extraField) ? 1 : 0.3 }));
       }
     }
-    const totals = showTotal ? clubShots.filter((s) => isCellUsed(s, extraField)).map((s) => s[extraField]).filter((v) => Number.isFinite(v)) : [];
     if (totals.length) linkPts.total.push([x(totals.reduce((a, v) => a + v, 0) / totals.length), y]);
     if (shots.length === 0) {
       root.appendChild(svg("text", { x: left + 4, y: y + 4, class: "dim" }, "未測定"));
       return;
     }
-    const used = shots.filter((s) => isCellUsed(s, field));
-    const nTitle = svg("title");
-    nTitle.textContent = `${clubLabel(club)} · 使う球 ${used.length}`;
-    clubText.appendChild(nTitle);
     shots.forEach((s) => {
       const off = !isCellUsed(s, field);
       const cx = x(s[field]), cy = y + jitterOf(s);
@@ -171,7 +233,10 @@ function dotPlot(data, opts) {
       fill: "none", stroke: css(color), "stroke-width": 1.5, "stroke-dasharray": "4 3", "stroke-opacity": 0.75 }));
   }
   root.appendChild(axis);
-  return root;
+  body.appendChild(root);
+  plot.appendChild(body);
+  plot.appendChild(boxes);
+  return plot;
 }
 
 function renderGaps(data) {
@@ -291,7 +356,7 @@ function renderSpecs(data) {
   const note = el("div", "legend");
   note.appendChild(el("span", "", "記 = 表の記載値 · 測 = パパの測定値 · 算 = 計算 (Q14 = 重さ × (バランス点 − 35.56cm)・SW の元になる量) · 番手にマウスを乗せると出所"));
   note.appendChild(el("span", "", "使用中のチェックはクリックで切り替えられる (このブラウザだけに覚える・データは変えない)。" +
-    "使っていないクラブは薄い字。調べた候補 (data/candidate_clubs.csv) の数字はメーカーの仕様表の値で、パパの測定ではない (バランス点と Q14 は —)"));
+    "使っていないクラブは薄い字。調べた候補の数字はメーカーの仕様表の値で、パパの測定ではない (バランス点と Q14 は —)"));
 
   for (const code of new Set(data.clubs.map((c) => c.measurement_status).filter(Boolean))) {
     note.appendChild(el("span", "", (MEASUREMENT_STATUS_JA[code] || "測った/記載: " + code)));
@@ -310,6 +375,7 @@ function drawCharts(data) {
   carry.appendChild(dotPlot(data, { field: "carry", extraField: "total", unit: "yd", step: 25, zero: false, digits: 1,
     meanLabel: "C", extraMeanLabel: "T",
     width: carry.clientWidth }));
+  wireInfo(carry);
   const metrics = document.getElementById("metrics");
   clearNode(metrics);
   for (const [field, title, unit, step, digits] of [["club_speed", "ヘッドスピード", "m/s", 2, 1], ["ball_speed", "ボールスピード", "m/s", 5, 1],
@@ -320,6 +386,7 @@ function drawCharts(data) {
     metrics.appendChild(wrap);
     wrap.appendChild(dotPlot(data, { field, unit, step, digits, rowH: 24, width: metrics.clientWidth }));
   }
+  wireInfo(metrics);
   drawSim(data);
   drawFlows(data);
 }
@@ -397,9 +464,7 @@ function flowChart(data, f, width) {
     if (fit) {
       const fitLine = svg("line", { x1: X(xLo), y1: Y(fit.a + fit.b * xLo), x2: X(xHi), y2: Y(fit.a + fit.b * xHi),
         stroke: css("--fg-muted"), "stroke-width": 1, "stroke-dasharray": "4 4" });
-      const fitTitle = svg("title");
-      fitTitle.textContent = "点線 = 直線の当てはめ (目安)";
-      fitLine.appendChild(fitTitle);
+      fitLine.appendChild(svg("title", {}, "番手の順に線でつなぐ · 点線 = 直線の当てはめ (目安)"));
       root.appendChild(fitLine);
     }
   }
@@ -467,26 +532,27 @@ function renderArmNote(data) {
   const text = !ARM ? "" : ARM.source === "height"
     ? `腕の長さ R = ${fmt(ARM.R_m, 3)} m (両肩の真ん中 → 手首・身長 ${fmt(ARM.H, 0)} cm × Drillis & Contini 1966 の比 (Winter 図 4.1)・丸めない ${fmt(ARM.R_m, 6)} m で計算)。` +
       "この箱の計算は身長からの R に固定 (説明のページのつまみとは別)。"
-    : `腕の長さ R = ${fmt(ARM.R_m, 3)} m (Lampsa 1975 の値 — data.json に身長が無いので借りた・パパの腕ではない)。`;
+    : `腕の長さ R = ${fmt(ARM.R_m, 3)} m (Lampsa 1975 の値 — 記録に身長が無いので借りた・パパの腕ではない)。`;
   document.getElementById("sim-arm").textContent = text;
 }
 
 function simSelfCheck(data) {
   const loaded = typeof GolfPhysics !== "undefined";
-  const traj = loaded ? GolfPhysics.selfCheck(data) : { ok: false, checked: 0, failures: ["physics.js が読めない"] };
+  const traj = loaded ? GolfPhysics.selfCheck(data) : { ok: false, checked: 0, failures: ["画面の物理の計算が読めない"] };
   const parts = loaded && typeof GolfPhysics.partsSelfCheck === "function" ? GolfPhysics.partsSelfCheck(data)
-    : { ok: false, checked: 0, failures: ["physics.js が読めない"] };
+    : { ok: false, checked: 0, failures: ["画面の物理の計算が読めない"] };
   simReady = traj.ok;
   partsReady = traj.ok && parts.ok;
   const shown = (res) => res.failures.slice(0, 3).join(" / ") + (res.failures.length > 3 ? ` ほか ${res.failures.length - 3} 件` : "");
-  const fix = typeof GolfLabGate !== "undefined" ? "" : "python swe3_detailed_design/src/export_view.py を回したか確かめてね ";
+  const fix = typeof GolfLabPcText !== "undefined" && typeof GolfLabPcText.rebuild === "string" ? GolfLabPcText.rebuild
+    : "電波のある所で開き直してね。直らない時は、PC で作り直して公開し直してね ";
   const alarm = [];
   if (!traj.ok) {
-    alarm.push("計算がずれてる: 画面の物理 (physics.js) と Python の軌跡が合わないから、ボールの軌跡とシミュレーションの「変える」を止めてるの。" +
+    alarm.push("計算がずれてる: 画面の物理の計算と、記録の軌跡 (Python の計算) が合わないから、ボールの軌跡とシミュレーションの「変える」を止めてるの。" +
       fix + "(" + shown(traj) + ")");
   }
   if (!parts.ok) {
-    alarm.push("計算がずれてる: 画面の部品モデル (physics.js) と data.json の clubs[].parts (Python) が合わないから、「変える」の「替える」を止めてるの。" +
+    alarm.push("計算がずれてる: 画面の部品モデルと、記録の部品モデル (Python の計算) が合わないから、「変える」の「替える」を止めてるの。" +
       fix + "(" + shown(parts) + ")");
   }
   document.getElementById("alarm").textContent = alarm.join(" ／ ");
@@ -591,7 +657,7 @@ function renderSimControls(data) {
   const parts = ["sim-change-row", "sim-why-change", "sim-weight", "sim-swap", "sim-swing-row", "sim-why-swing"];
   if (!simReady) {
     stop.hidden = false;
-    stop.textContent = "自己点検で計算がずれたから、「変える」を止めてるの (上の赤い帯)。今の軌跡は data.json (Python) の値のまま出してる";
+    stop.textContent = "自己点検で計算がずれたから、「変える」を止めてるの (上の赤い帯)。今の軌跡は記録の値 (Python の計算) のまま出してる";
     for (const id of parts) document.getElementById(id).hidden = true;
     return;
   }
@@ -813,25 +879,26 @@ function drawTrajectory(data, plan) {
   const yMaxRaw = Math.max(...lines.flatMap((l) => [l.model.apex, l.meas.apex]).filter(fin));
   const xs = niceStep(xMaxRaw, 8), ys = niceStep(yMaxRaw, 5);
   const xMax = Math.ceil(xMaxRaw / xs) * xs, yMax = Math.ceil((yMaxRaw * 1.08) / ys) * ys;
-  const W = Math.max(320, Math.round(box.clientWidth || 640)), H = 340;
-  const left = 36, right = 56, top = 14, bottom = 26;
+  const W = Math.max(320, Math.round(box.clientWidth || 640)), H = 352;
+  const left = 36, right = 56, top = 22, bottom = 30;
   const pw = W - left - right, ph = H - top - bottom;
   const x = (v) => left + (v / xMax) * pw, y = (v) => top + ph - (v / yMax) * ph;
   const root = svg("svg", { viewBox: `0 0 ${W} ${H}`, role: "img" });
   const grid = svg("g", { class: "grid" }), axis = svg("g", { class: "axis" });
   for (let v = 0; v <= xMax + 1e-9; v += xs) {
     grid.appendChild(svg("line", { x1: x(v), x2: x(v), y1: top, y2: top + ph }));
-    axis.appendChild(svg("text", { x: x(v), y: H - 8, "text-anchor": "middle" }, String(v)));
+    axis.appendChild(svg("text", { x: x(v), y: top + ph + 13, "text-anchor": "middle" }, String(v)));
   }
   for (let v = 0; v <= yMax + 1e-9; v += ys) {
     grid.appendChild(svg("line", { x1: left, x2: left + pw, y1: y(v), y2: y(v) }));
     axis.appendChild(svg("text", { x: left - 4, y: y(v) + 3, "text-anchor": "end" }, String(v)));
   }
-  axis.appendChild(svg("text", { x: W - 2, y: H - 8, "text-anchor": "end" }, "飛距離 yd"));
-  axis.appendChild(svg("text", { x: left + 6, y: top + 10 }, "高さ yd"));
+  axis.appendChild(svg("text", { x: left + pw, y: H - 2, "text-anchor": "end" }, "飛距離 yd"));
+  axis.appendChild(svg("text", { x: 2, y: top - 10 }, "高さ yd"));
   root.appendChild(grid);
   root.appendChild(svg("line", { x1: left, x2: left + pw, y1: y(0), y2: y(0), stroke: css("--fg-muted"), "stroke-width": 1 }));
   const layer = { pga: 0, lpga: 0, mine: 1, after: 2 };
+  const ends = [];
   for (const l of lines.slice().sort((a, b) => layer[a.kind] - layer[b.kind])) {
     const pts = l.pts;
     if (fin(l.ray) && l.ray > 0) {
@@ -866,7 +933,14 @@ function drawTrajectory(data, plan) {
         : svg("circle", { cx, cy, r: 5, fill: css("--canvas"), stroke: l.color, "stroke-width": 2 });
       mark(shape, `${l.name} · ${l.measBy} のキャリー ${fmt(l.meas.carry)} yd (計算は ${fmt(l.model.carry)} yd)`);
     }
-    if (l.kind !== "mine") root.appendChild(svg("text", { x: x(l.model.carry) + 8, y: y(0) - 8, fill: l.color, "font-weight": 600 }, l.name.split(" ")[0]));
+    if (l.kind !== "mine") ends.push({ x: x(l.model.carry) + 8, color: l.color, text: l.name.split(" ")[0] });
+  }
+  ends.sort((a, b) => a.x - b.x);
+  let prevEnd = null;
+  for (const e of ends) {
+    const ty = prevEnd && e.x - prevEnd.x < 40 ? prevEnd.y - 13 : y(0) - 8;
+    root.appendChild(svg("text", { x: e.x, y: ty, fill: e.color, "font-weight": 600 }, e.text));
+    prevEnd = { x: e.x, y: ty };
   }
   root.appendChild(axis);
   box.appendChild(root);
@@ -905,12 +979,12 @@ function drawTrajectory(data, plan) {
   table.appendChild(tbl);
   const m = (data.trajectories || {}).model || {};
   document.getElementById("traj-note").textContent =
-    `線は打出条件 (ボールスピード・打出角・バックスピン) から計算した 2D の参考弾道 (swe3_detailed_design/src/ballistics.py・0.002 秒刻み)。` +
+    `線は打出条件 (ボールスピード・打出角・バックスピン) から計算した 2D の参考弾道 (弾道の計算 (Python)・0.002 秒刻み)。` +
     `無風・空気密度 ${fmt(m.rho_kgm3, 3)} kg/m³ (海面・15℃)・打った所と同じ高さに落ちる・左右の曲がりは省いてる。` +
     `ツアーの線は平均の打出条件から計算したもので、実測した軌跡の平均ではないの。` +
     `TrackMan の測った値と比べると、計算は落下角がいつも 2〜8° 浅い (落ち方が寝ている) から、落下角や止まりやすさの判断には使わないでね。` +
     `測定の欄: ツアー = TrackMan 2023 の平均、パパ = X-SWING の画面の値 (落下角は画面に無い)。` +
-    (plan ? "紫の線 = 変えた後 (同じ式を移した physics.js の計算・パパの球ごと)。答え合わせの表の「変えた後」の行は入力も計算で、測定は無い。" : "") +
+    (plan ? "紫の線 = 変えた後 (同じ式を移した画面の物理の計算・パパの球ごと)。答え合わせの表の「変えた後」の行は入力も計算で、測定は無い。" : "") +
     `縦は横の約 ${k.toFixed(1)} 倍に拡大して描いてるから、見た目の傾きは本当の角度ではないよ。` +
     `細いまっすぐな線は打ち出しの向き (横から見た打出角)。軌跡がこの線より上にあるのは、バックスピンの揚力が重力より強い間に上へ曲がったから (線とのずれは揚力・重力・空気の抵抗の合わせ技で、揚力だけの分ではない・縦の拡大で大きく見えている)。` +
     `プロの球が「浮き上がって見える」のは、後ろから見ると見上げる角度が先まで上がり続けるからでもある (PGA の Driver の計算だと、打った人の目 (高さ 1.6 m) から見上げる角度は 120 yd 先まで上がり続ける)。`;
@@ -1256,22 +1330,22 @@ function renderControls(data) {
   const box = document.getElementById("controls");
   clearNode(box);
   const hasTour = (key) => (data.tour || []).some((t) => t.club && tourKey(t) === key);
+  const chip = { mine: ["パパ", "--accent"], total: ["トータル", "--total"], pga: ["PGA", "--pga"], lpga: ["LPGA", "--lpga"] };
   const row = el("div", "control-row");
   row.appendChild(el("span", "control-title", "表示"));
-  for (const [key, name, short] of SERIES) {
+  for (const [key, name] of SERIES) {
     if ((key === "pga" || key === "lpga") && !hasTour(key)) continue;
-    const label = el("label", "check chip-check");
+    const label = el("label", "show-chip");
     label.title = name;
-    label.dataset.series = key;
     const input = el("input");
     input.type = "checkbox";
     input.checked = SHOW[key];
     input.addEventListener("change", () => { SHOW[key] = input.checked; saveShow(); drawCharts(data); });
     label.appendChild(input);
-    const chip = el("span", "chip-t");
-    chip.appendChild(el("i", "chip-dot"));
-    chip.appendChild(document.createTextNode(short));
-    label.appendChild(chip);
+    const dot = el("span", "show-dot");
+    dot.style.background = css(chip[key][1]);
+    label.appendChild(dot);
+    label.appendChild(el("span", "", chip[key][0]));
     row.appendChild(label);
   }
   box.appendChild(row);
@@ -1319,34 +1393,48 @@ function render(data) {
   drawCharts(data);
   let timer = null;
   window.addEventListener("resize", () => { clearTimeout(timer); timer = setTimeout(() => drawCharts(data), 150); });
-  renderCellsTag(data);
-  const cellsRedraw = () => {
+  const onCells = () => {
     renderCellsTag(data);
     updateSim(data);
     drawCharts(data);
   };
-  const cellsChanged = () => {
+  renderCellsTag(data);
+  if (typeof GolfLabTable !== "undefined") GolfLabTable.mount(data, onCells);
+  window.addEventListener("storage", (e) => {
+    if (e.key !== CELL_KEY) return;
     cellsReload();
-    if (typeof ShotsTable !== "undefined") ShotsTable.repaint();
-    cellsRedraw();
-  };
-  if (typeof ShotsTable !== "undefined") ShotsTable.mount(data, cellsRedraw);
-  window.addEventListener("storage", (e) => { if (e.key === CELL_KEY) cellsChanged(); });
-  window.addEventListener("pageshow", (e) => { if (e.persisted) cellsChanged(); });
+    if (typeof GolfLabTable !== "undefined") GolfLabTable.repaint();
+    onCells();
+  });
+  window.addEventListener("pageshow", (e) => {
+    if (!e.persisted) return;
+    cellsReload();
+    if (typeof GolfLabTable !== "undefined") GolfLabTable.repaint();
+    onCells();
+  });
   const trend = document.getElementById("trend");
   trend.textContent = dated ? `📅 ${dated} 球` : "📅 日付なし — まだ描けない";
   trend.title = dated
     ? `日付つきの記録 ${dated} 球 (推移のグラフは次の版で)`
     : `今の ${data.shots.length} 球は撮った日が分からないの。これから貼ってもらう記録には日付を入れるから、増えたらここに推移を出すね。`;
   renderSpecs(data);
+  const onShow = (view) => {
+    if ((view.tab === "shots" && view.sub === "graph") || view.tab === "clubs" || view.tab === "sim") drawCharts(data);
+  };
+  if (typeof GolfLabTabs !== "undefined") GolfLabTabs.ready(onShow);
 }
 
 function renderCellsTag(data) {
   const a = document.getElementById("cells-link");
   const off = cellsOff(data);
+  const title = "データの表 — 使う / 使わないをますで選ぶ" + (off.length ? " · 外した: " + off.map(([id, f]) => `${id} ${cellLabel(f)}`).join(", ") : "");
   a.textContent = off.length ? `▦ 表 · 外した ${off.length}` : "▦ 表";
-  a.title = "データの表 — 使う / 使わないをますで選ぶ" + (off.length ? " · 外した: " + off.map(([id, f]) => `${id} ${cellLabel(f)}`).join(", ") : "");
+  a.title = title;
   a.classList.toggle("warn", off.length > 0);
+  const tag = document.getElementById("cells-off");
+  tag.textContent = `外した ${off.length}`;
+  tag.title = title;
+  tag.hidden = off.length === 0;
 }
 
 const ON_GATE = typeof GolfLabGate !== "undefined";
@@ -1374,6 +1462,7 @@ function discard() {
   if (!gateDrawn || gateReloading) return;
   gateReloading = true;
   document.body.hidden = true;
+  if (typeof GolfLabTable !== "undefined") GolfLabTable.drop();
   location.reload();
 }
 
@@ -1384,7 +1473,7 @@ fetch("data.json", { cache: "no-store" })
   .then((r) => { if (!r.ok) throw new Error("http " + r.status); return r.json(); })
   .then(render)
   .catch((e) => {
-    document.getElementById("error").textContent =
-      "data.json が読めないの (" + e.message + ")。Live Preview で開いているか、`python swe3_detailed_design/src/export_view.py` を回したか確かめてね";
+    const pc = typeof GolfLabPcText !== "undefined" && typeof GolfLabPcText.viewLoad === "string" ? GolfLabPcText.viewLoad : "";
+    document.getElementById("error").textContent = "記録が読めないの (" + e.message + ")。" + pc;
   });
 }
